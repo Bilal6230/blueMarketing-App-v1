@@ -82,6 +82,7 @@ npx expo export --platform web
 - Authorization headers, tokens, passwords, phone numbers, addresses, CNIC/NIC values, and similar sensitive fields are redacted.
 - TanStack Query cache is not persisted.
 - Session bootstrap never treats a restored token as authenticated until server validation is added in the authentication sprint.
+- Restored candidate tokens remain globally inactive until the authentication sprint validates them through an explicit session-validation request, such as `/auth/me`, and promotes the session to `authenticated`.
 - If secure token deletion fails during logout, in-memory session state is still cleared immediately. Any residual token is treated as untrusted on the next bootstrap and must be deleted again or invalidated by the later `/auth/me` and `401` flow.
 
 ## Git workflow

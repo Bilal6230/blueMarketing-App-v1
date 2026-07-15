@@ -9,6 +9,7 @@ import { useNetworkState } from '@/hooks/useNetworkState';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider, useThemeContext } from '@/providers/ThemeProvider';
 import { logger } from '@/services/logger';
+import { resolveActiveAccessToken } from '@/store/resolveActiveAccessToken';
 import { useAuthStore } from '@/store/authStore';
 import {
   registerTokenProvider,
@@ -18,14 +19,15 @@ import {
 function BootstrapGate({ children }: PropsWithChildren) {
   const hydrateSession = useAuthStore((state) => state.hydrateSession);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const status = useAuthStore((state) => state.status);
   const [ready, setReady] = useState(false);
 
   useAppLifecycle();
   useNetworkState();
 
   useEffect(() => {
-    registerTokenProvider(() => accessToken);
-  }, [accessToken]);
+    registerTokenProvider(() => resolveActiveAccessToken(status, accessToken));
+  }, [accessToken, status]);
 
   useEffect(() => {
     registerUnauthorizedHandler(() => {

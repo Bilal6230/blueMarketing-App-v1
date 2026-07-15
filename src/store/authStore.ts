@@ -2,12 +2,17 @@ import { create } from 'zustand';
 
 import type { AuthSession, AuthUser } from '@/types/auth';
 import type { ProjectSummary } from '@/types/project';
-import type { AuthStatus, SessionPersistenceResult } from '@/store/types';
+import type {
+  AuthStatus,
+  ClearSessionResult,
+  SessionPersistenceResult,
+} from '@/store/types';
 import {
   clearSessionStorage,
+  deleteSelectedProjectId,
+  deleteAccessToken,
   getAccessToken,
   getSelectedProjectId,
-  deleteSelectedProjectId,
   setAccessToken,
   setSelectedProjectId,
 } from '@/services/secureStorage';
@@ -20,7 +25,7 @@ type AuthState = {
   selectedProjectId: number | null;
   status: AuthStatus;
   user: AuthUser | null;
-  clearSession: () => Promise<void>;
+  clearSession: () => Promise<ClearSessionResult>;
   hydrateSession: () => Promise<void>;
   setSelectedProject: (projectId: number) => Promise<void>;
   setSession: (session: AuthSession) => Promise<SessionPersistenceResult>;
@@ -52,11 +57,12 @@ function resolveSelectedProjectId(
 export const useAuthStore = create<AuthState>((set, get) => ({
   ...initialState,
   clearSession: async () => {
-    await clearSessionStorage();
+    const cleanupResult = await clearSessionStorage();
     set({
       ...initialState,
       status: 'unauthenticated',
     });
+    return cleanupResult;
   },
   hydrateSession: async () => {
     const [accessToken, selectedProjectId] = await Promise.all([
@@ -95,6 +101,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return {
         ok: false,
         reason: 'tokenPersistenceFailed',
+        rollbackRequired: false,
+        rollbackSucceeded: null,
         selectedProjectId,
       };
     }
@@ -105,9 +113,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         : await setSelectedProjectId(selectedProjectId);
 
     if (!projectPersistenceResult.ok) {
+      const tokenRollbackResult = await deleteAccessToken();
+
       return {
         ok: false,
         reason: 'selectedProjectPersistenceFailed',
+        rollbackRequired: true,
+        rollbackSucceeded: tokenRollbackResult.ok,
         selectedProjectId,
       };
     }

@@ -22,6 +22,8 @@ Expo SecureStore is the correct baseline for mobile token storage in this sprint
 
 Session persistence is treated as durable only after token and selected-project storage complete successfully. If token persistence fails, the store returns a typed failure result and does not mark the session authenticated. If logout deletion fails, the in-memory session is still cleared and any residual token remains untrusted during the next bootstrap until server validation or deletion succeeds.
 
+If selected-project persistence fails after token persistence, the store attempts a token rollback and returns whether that rollback succeeded. Candidate tokens restored during bootstrap are never exposed to the global API client until the authentication sprint explicitly validates them and promotes the session to `authenticated`.
+
 ## Why there is no generic UI framework
 
 Blue Marketing needs a custom premium design system. External component libraries would impose visual defaults too early, so this sprint establishes only semantic tokens and a few reusable primitives.
