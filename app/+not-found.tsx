@@ -10,9 +10,9 @@ export default function NotFoundScreen() {
 
   return (
     <Screen contentContainerStyle={styles.content} scrollable={false}>
-      <AppCard accessible padding="lg">
+      <AppCard padding="lg">
         <View style={styles.stack}>
-          <AppText variant="eyebrow" color="textMuted">
+          <AppText color="textMuted" variant="label">
             Page unavailable
           </AppText>
           <AppText variant="title">We could not open that screen.</AppText>
@@ -31,7 +31,7 @@ export default function NotFoundScreen() {
               },
             ]}
           >
-            <AppText variant="button" color="surface">
+            <AppText color="surface" variant="labelStrong">
               Return home
             </AppText>
           </Pressable>

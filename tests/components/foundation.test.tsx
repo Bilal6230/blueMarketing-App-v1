@@ -52,6 +52,6 @@ describe('foundation components', () => {
       </ThemeProvider>,
     );
 
-    expect(getByText('#1656B8')).toBeTruthy();
+    expect(getByText('#2878F0')).toBeTruthy();
   });
 });

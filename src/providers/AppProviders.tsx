@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  useFonts,
+} from '@expo-google-fonts/manrope';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -21,6 +28,12 @@ function BootstrapGate({ children }: PropsWithChildren) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const status = useAuthStore((state) => state.status);
   const [ready, setReady] = useState(false);
+  const [fontsLoaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+  });
 
   useAppLifecycle();
   useNetworkState();
@@ -44,7 +57,7 @@ function BootstrapGate({ children }: PropsWithChildren) {
       try {
         await hydrateSession();
       } finally {
-        if (!mounted) {
+        if (!mounted || !fontsLoaded) {
           return;
         }
 
@@ -58,7 +71,7 @@ function BootstrapGate({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
     };
-  }, [hydrateSession]);
+  }, [fontsLoaded, hydrateSession]);
 
   if (!ready) {
     return null;

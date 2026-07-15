@@ -1,7 +1,9 @@
-export const radius = {
-  lg: 20,
-  md: 16,
+import type { RadiusScale } from '@/theme/types';
+
+export const radius: RadiusScale = {
+  large: 16,
+  medium: 12,
   pill: 999,
-  sm: 12,
-  xl: 28,
-} as const;
+  small: 8,
+  xLarge: 20,
+};

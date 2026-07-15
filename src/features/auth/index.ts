@@ -1,1 +1,1 @@
-export * from '@/features/auth/screens/LoginPlaceholderScreen';
+export * from '@/features/auth/screens/PremiumLoginScreen';

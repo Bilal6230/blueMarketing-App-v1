@@ -1,6 +1,6 @@
 # Blue Marketing Mobile
 
-Blue Marketing Mobile is the React Native foundation for Blue Marketing operational users, including superadmins, administrators, staff, and other permission-controlled roles. This sprint establishes routing, state boundaries, security defaults, theming, testing, and CI only. Business modules and live authentication are intentionally not implemented yet.
+Blue Marketing Mobile is the React Native client for Blue Marketing operational users, including superadmins, administrators, staff, and other permission-controlled roles. The current branch adds a premium design system, reusable UI primitives, and development-only high-fidelity prototype flows without connecting live business APIs yet.
 
 ## Prerequisites
 
@@ -21,6 +21,16 @@ npm install
 2. Set `EXPO_PUBLIC_API_URL` to the Laravel mobile API base path, for example `http://YOUR_LOCAL_IP/api/v1/mobile`.
 3. Do not place secrets in `EXPO_PUBLIC_*` variables because Expo bundles them into the client application.
 
+## Prototype preview routes
+
+Development builds include a preview-only route group for the premium UI review shell:
+
+```text
+/(preview)
+```
+
+Use it to inspect the login prototype, staff and administrator dashboards, CRM screens, attendance states, and the design-system showcase without altering real authentication state.
+
 ## Development commands
 
 ```bash
@@ -39,13 +49,13 @@ npm run validate
 
 1. Start an Android emulator from Android Studio.
 2. Run `npm run android`.
-3. Confirm the placeholder login screen loads and the not-found screen returns to `/`.
+3. Confirm the premium login screen loads and preview routes render correctly in development mode.
 
 ## iOS testing
 
 1. On macOS, start an iOS simulator in Xcode.
 2. Run `npm run ios`.
-3. Confirm the placeholder login screen loads and theme colors render correctly in light and dark mode.
+3. Confirm the premium login screen loads and theme colors render correctly in light and dark mode.
 
 ## Validation commands
 
@@ -85,19 +95,9 @@ npx expo export --platform web
 - Restored candidate tokens remain globally inactive until the authentication sprint validates them through an explicit session-validation request, such as `/auth/me`, and promotes the session to `authenticated`.
 - If secure token deletion fails during logout, in-memory session state is still cleared immediately. Any residual token is treated as untrusted on the next bootstrap and must be deleted again or invalidated by the later `/auth/me` and `401` flow.
 
-## Git workflow
-
-1. Work from `feature/app-foundation`.
-2. Use conventional commits.
-3. Push the branch and open a draft pull request against `main`.
-4. Do not merge from this sprint task.
-
-Initial repository baseline handling:
-The repository started with `feature/app-foundation` as the only branch and remote default because there was no earlier `main` commit. The safe correction path is to preserve that initial foundation commit unchanged, create `main` from that exact commit, and place all follow-up hardening work in later commits on `feature/app-foundation` so pull requests show a real reviewable diff.
-
 ## Current sprint status
 
-Sprint 1 establishes the application foundation only. Routing, theme tokens, placeholder screens, session bootstrap, query lifecycle integration, API normalization, secure storage wrappers, tests, and CI are included.
+Sprint 2 establishes the premium mobile design system and static prototype experiences. Semantic tokens, light and dark themes, motion and haptic wrappers, reusable components, preview-only routes, mock UI data, and supporting tests are included. Live authentication and production business integrations remain intentionally unimplemented.
 
 Licensing and distribution terms for this application must be confirmed by Blue Marketing before production release.
 
@@ -116,10 +116,12 @@ Licensing and distribution terms for this application must be confirmed by Blue 
 - Push notifications
 - Biometric authentication
 
+Prototype screens in this branch use isolated mock data under `src/mocks/` only for static UI review.
+
 ## Bundle identifiers
 
 Android package and iOS bundle identifiers are intentionally left unset. Final values must be agreed before signed production builds.
 
 ## Temporary assets
 
-Application icons and splash assets are temporary Blue Marketing placeholders only. Final branded assets will be delivered during the design-system sprint.
+Application icons and splash assets remain temporary Blue Marketing placeholders only.

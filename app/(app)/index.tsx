@@ -1,5 +1,12 @@
-import { FoundationHomeScreen } from '@/features/foundation/screens/FoundationHomeScreen';
+import { EmptyState, Screen } from '@/components';
 
 export default function AppIndexRoute() {
-  return <FoundationHomeScreen />;
+  return (
+    <Screen>
+      <EmptyState
+        subtitle="Authenticated business modules remain intentionally unimplemented in this sprint."
+        title="Application shell ready"
+      />
+    </Screen>
+  );
 }
