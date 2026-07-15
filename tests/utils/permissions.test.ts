@@ -16,15 +16,21 @@ describe('permissions utilities', () => {
   });
 
   it('supports any-permission matching', () => {
-    expect(hasAnyPermission(['crm.read', 'stock.update'], ['stock.update', 'admin.manage'])).toBe(
-      true,
-    );
+    expect(
+      hasAnyPermission(
+        ['crm.read', 'stock.update'],
+        ['stock.update', 'admin.manage'],
+      ),
+    ).toBe(true);
   });
 
   it('supports all-permission matching', () => {
-    expect(hasAllPermissions(['crm.read', 'stock.update'], ['crm.read', 'stock.update'])).toBe(
-      true,
-    );
+    expect(
+      hasAllPermissions(
+        ['crm.read', 'stock.update'],
+        ['crm.read', 'stock.update'],
+      ),
+    ).toBe(true);
   });
 
   it('handles empty required permission arrays predictably', () => {
@@ -33,7 +39,9 @@ describe('permissions utilities', () => {
   });
 
   it('handles duplicates and case-insensitive comparisons', () => {
-    expect(hasAnyPermission([' Admin.Manage ', 'admin.manage'], ['admin.manage'])).toBe(true);
+    expect(
+      hasAnyPermission([' Admin.Manage ', 'admin.manage'], ['admin.manage']),
+    ).toBe(true);
   });
 
   it('checks roles consistently', () => {

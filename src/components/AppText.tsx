@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, type StyleProp, type TextProps, type TextStyle } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  type StyleProp,
+  type TextProps,
+  type TextStyle,
+} from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import type { ThemeColorToken, TypographyVariant } from '@/theme';

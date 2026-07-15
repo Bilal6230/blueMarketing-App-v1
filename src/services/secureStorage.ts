@@ -3,6 +3,52 @@ import * as SecureStore from 'expo-secure-store';
 import { SECURE_STORE_KEYS } from '@/config/constants';
 import { logger } from '@/services/logger';
 
+export type SecureStorageOperation =
+  | 'setAccessToken'
+  | 'deleteAccessToken'
+  | 'setSelectedProjectId'
+  | 'deleteSelectedProjectId';
+
+export type SecureStorageResult =
+  | { ok: true }
+  | {
+      ok: false;
+      operation: SecureStorageOperation;
+    };
+
+export type ClearSessionStorageResult =
+  | { ok: true }
+  | {
+      ok: false;
+      failedOperations: SecureStorageOperation[];
+    };
+
+const positiveIntegerPattern = /^[1-9]\d*$/;
+
+export function parseStoredProjectId(value: string | null) {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!positiveIntegerPattern.test(trimmedValue)) {
+    return null;
+  }
+
+  const parsedValue = Number(trimmedValue);
+
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return parsedValue;
+}
+
+function isValidProjectId(projectId: number) {
+  return Number.isSafeInteger(projectId) && projectId > 0;
+}
+
 export async function getAccessToken() {
   try {
     return await SecureStore.getItemAsync(SECURE_STORE_KEYS.accessToken);
@@ -16,40 +62,49 @@ export async function getAccessToken() {
   }
 }
 
-export async function setAccessToken(token: string) {
+export async function setAccessToken(
+  token: string,
+): Promise<SecureStorageResult> {
   try {
     await SecureStore.setItemAsync(SECURE_STORE_KEYS.accessToken, token);
+    return { ok: true };
   } catch (error) {
     logger.warn('Failed to persist access token to secure storage.', {
       key: SECURE_STORE_KEYS.accessToken,
       operation: 'setAccessToken',
       error,
     });
+    return {
+      ok: false,
+      operation: 'setAccessToken',
+    };
   }
 }
 
-export async function deleteAccessToken() {
+export async function deleteAccessToken(): Promise<SecureStorageResult> {
   try {
     await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.accessToken);
+    return { ok: true };
   } catch (error) {
     logger.warn('Failed to delete access token from secure storage.', {
       key: SECURE_STORE_KEYS.accessToken,
       operation: 'deleteAccessToken',
       error,
     });
+    return {
+      ok: false,
+      operation: 'deleteAccessToken',
+    };
   }
 }
 
 export async function getSelectedProjectId() {
   try {
-    const storedValue = await SecureStore.getItemAsync(SECURE_STORE_KEYS.selectedProjectId);
+    const storedValue = await SecureStore.getItemAsync(
+      SECURE_STORE_KEYS.selectedProjectId,
+    );
 
-    if (!storedValue) {
-      return null;
-    }
-
-    const parsed = Number.parseInt(storedValue, 10);
-    return Number.isFinite(parsed) ? parsed : null;
+    return parseStoredProjectId(storedValue);
   } catch (error) {
     logger.warn('Failed to read selected project ID from secure storage.', {
       key: SECURE_STORE_KEYS.selectedProjectId,
@@ -60,30 +115,77 @@ export async function getSelectedProjectId() {
   }
 }
 
-export async function setSelectedProjectId(projectId: number) {
+export async function setSelectedProjectId(
+  projectId: number,
+): Promise<SecureStorageResult> {
+  if (!isValidProjectId(projectId)) {
+    logger.warn(
+      'Rejected invalid selected project ID before secure storage persistence.',
+      {
+        operation: 'setSelectedProjectId',
+        projectIdValid: false,
+      },
+    );
+    return {
+      ok: false,
+      operation: 'setSelectedProjectId',
+    };
+  }
+
   try {
-    await SecureStore.setItemAsync(SECURE_STORE_KEYS.selectedProjectId, String(projectId));
+    await SecureStore.setItemAsync(
+      SECURE_STORE_KEYS.selectedProjectId,
+      String(projectId),
+    );
+    return { ok: true };
   } catch (error) {
     logger.warn('Failed to persist selected project ID to secure storage.', {
       key: SECURE_STORE_KEYS.selectedProjectId,
       operation: 'setSelectedProjectId',
       error,
     });
+    return {
+      ok: false,
+      operation: 'setSelectedProjectId',
+    };
   }
 }
 
-export async function deleteSelectedProjectId() {
+export async function deleteSelectedProjectId(): Promise<SecureStorageResult> {
   try {
     await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.selectedProjectId);
+    return { ok: true };
   } catch (error) {
     logger.warn('Failed to delete selected project ID from secure storage.', {
       key: SECURE_STORE_KEYS.selectedProjectId,
       operation: 'deleteSelectedProjectId',
       error,
     });
+    return {
+      ok: false,
+      operation: 'deleteSelectedProjectId',
+    };
   }
 }
 
-export async function clearSessionStorage() {
-  await Promise.all([deleteAccessToken(), deleteSelectedProjectId()]);
+export async function clearSessionStorage(): Promise<ClearSessionStorageResult> {
+  const [tokenResult, projectResult] = await Promise.all([
+    deleteAccessToken(),
+    deleteSelectedProjectId(),
+  ]);
+  const failedOperations = [tokenResult, projectResult]
+    .filter(
+      (result): result is Extract<SecureStorageResult, { ok: false }> =>
+        !result.ok,
+    )
+    .map((result) => result.operation);
+
+  if (failedOperations.length === 0) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    failedOperations,
+  };
 }

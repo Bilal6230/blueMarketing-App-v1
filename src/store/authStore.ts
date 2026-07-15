@@ -2,11 +2,12 @@ import { create } from 'zustand';
 
 import type { AuthSession, AuthUser } from '@/types/auth';
 import type { ProjectSummary } from '@/types/project';
-import type { AuthStatus } from '@/store/types';
+import type { AuthStatus, SessionPersistenceResult } from '@/store/types';
 import {
   clearSessionStorage,
   getAccessToken,
   getSelectedProjectId,
+  deleteSelectedProjectId,
   setAccessToken,
   setSelectedProjectId,
 } from '@/services/secureStorage';
@@ -22,7 +23,7 @@ type AuthState = {
   clearSession: () => Promise<void>;
   hydrateSession: () => Promise<void>;
   setSelectedProject: (projectId: number) => Promise<void>;
-  setSession: (session: AuthSession) => void;
+  setSession: (session: AuthSession) => Promise<SessionPersistenceResult>;
 };
 
 const initialState = {
@@ -35,12 +36,17 @@ const initialState = {
   user: null,
 };
 
-function resolveSelectedProjectId(projects: ProjectSummary[], selectedProjectId: number | null) {
+function resolveSelectedProjectId(
+  projects: ProjectSummary[],
+  selectedProjectId: number | null,
+) {
   if (selectedProjectId === null) {
     return null;
   }
 
-  return projects.some((project) => project.id === selectedProjectId) ? selectedProjectId : null;
+  return projects.some((project) => project.id === selectedProjectId)
+    ? selectedProjectId
+    : null;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -72,15 +78,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    await setSelectedProjectId(projectId);
-    set({ selectedProjectId: projectId });
-  },
-  setSession: (session) => {
-    const selectedProjectId = resolveSelectedProjectId(session.projects, session.selectedProjectId);
+    const persistenceResult = await setSelectedProjectId(projectId);
 
-    void setAccessToken(session.accessToken);
-    if (selectedProjectId !== null) {
-      void setSelectedProjectId(selectedProjectId);
+    if (persistenceResult.ok) {
+      set({ selectedProjectId: projectId });
+    }
+  },
+  setSession: async (session) => {
+    const selectedProjectId = resolveSelectedProjectId(
+      session.projects,
+      session.selectedProjectId,
+    );
+    const accessTokenResult = await setAccessToken(session.accessToken);
+
+    if (!accessTokenResult.ok) {
+      return {
+        ok: false,
+        reason: 'tokenPersistenceFailed',
+        selectedProjectId,
+      };
+    }
+
+    const projectPersistenceResult =
+      selectedProjectId === null
+        ? await deleteSelectedProjectId()
+        : await setSelectedProjectId(selectedProjectId);
+
+    if (!projectPersistenceResult.ok) {
+      return {
+        ok: false,
+        reason: 'selectedProjectPersistenceFailed',
+        selectedProjectId,
+      };
     }
 
     set({
@@ -92,5 +121,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       status: 'authenticated',
       user: session.user,
     });
+
+    return {
+      ok: true,
+      selectedProjectId,
+    };
   },
 }));

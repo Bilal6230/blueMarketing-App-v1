@@ -81,6 +81,8 @@ npx expo export --platform web
 - Logger metadata is sanitized and limited to development output.
 - Authorization headers, tokens, passwords, phone numbers, addresses, CNIC/NIC values, and similar sensitive fields are redacted.
 - TanStack Query cache is not persisted.
+- Session bootstrap never treats a restored token as authenticated until server validation is added in the authentication sprint.
+- If secure token deletion fails during logout, in-memory session state is still cleared immediately. Any residual token is treated as untrusted on the next bootstrap and must be deleted again or invalidated by the later `/auth/me` and `401` flow.
 
 ## Git workflow
 
@@ -89,9 +91,14 @@ npx expo export --platform web
 3. Push the branch and open a draft pull request against `main`.
 4. Do not merge from this sprint task.
 
+Initial repository baseline handling:
+The repository started with `feature/app-foundation` as the only branch and remote default because there was no earlier `main` commit. The safe correction path is to preserve that initial foundation commit unchanged, create `main` from that exact commit, and place all follow-up hardening work in later commits on `feature/app-foundation` so pull requests show a real reviewable diff.
+
 ## Current sprint status
 
 Sprint 1 establishes the application foundation only. Routing, theme tokens, placeholder screens, session bootstrap, query lifecycle integration, API normalization, secure storage wrappers, tests, and CI are included.
+
+Licensing and distribution terms for this application must be confirmed by Blue Marketing before production release.
 
 ## Explicitly unimplemented modules
 
@@ -111,3 +118,7 @@ Sprint 1 establishes the application foundation only. Routing, theme tokens, pla
 ## Bundle identifiers
 
 Android package and iOS bundle identifiers are intentionally left unset. Final values must be agreed before signed production builds.
+
+## Temporary assets
+
+Application icons and splash assets are temporary Blue Marketing placeholders only. Final branded assets will be delivered during the design-system sprint.

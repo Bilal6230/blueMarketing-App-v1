@@ -2,7 +2,12 @@ import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useState } from 'react';
 import { useColorScheme } from 'react-native';
 
-import { darkTheme, lightTheme, type AppTheme, type ThemePreference } from '@/theme';
+import {
+  darkTheme,
+  lightTheme,
+  type AppTheme,
+  type ThemePreference,
+} from '@/theme';
 
 type ThemeContextValue = {
   colorScheme: 'dark' | 'light';
@@ -22,9 +27,14 @@ export function ThemeProvider({
   initialPreference = 'system',
 }: ThemeProviderProps) {
   const systemScheme = useColorScheme();
-  const [themePreference, setThemePreference] = useState<ThemePreference>(initialPreference);
+  const [themePreference, setThemePreference] =
+    useState<ThemePreference>(initialPreference);
   const colorScheme =
-    themePreference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : themePreference;
+    themePreference === 'system'
+      ? systemScheme === 'dark'
+        ? 'dark'
+        : 'light'
+      : themePreference;
 
   const value: ThemeContextValue = {
     colorScheme,
@@ -33,7 +43,9 @@ export function ThemeProvider({
     themePreference,
   };
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }
 
 export function useThemeContext() {

@@ -10,7 +10,10 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider, useThemeContext } from '@/providers/ThemeProvider';
 import { logger } from '@/services/logger';
 import { useAuthStore } from '@/store/authStore';
-import { registerTokenProvider, registerUnauthorizedHandler } from '@/api/tokenProvider';
+import {
+  registerTokenProvider,
+  registerUnauthorizedHandler,
+} from '@/api/tokenProvider';
 
 function BootstrapGate({ children }: PropsWithChildren) {
   const hydrateSession = useAuthStore((state) => state.hydrateSession);

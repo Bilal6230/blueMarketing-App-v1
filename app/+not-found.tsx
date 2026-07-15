@@ -25,7 +25,9 @@ export default function NotFoundScreen() {
             style={({ pressed }) => [
               styles.link,
               {
-                backgroundColor: pressed ? theme.colors.primaryPressed : theme.colors.primary,
+                backgroundColor: pressed
+                  ? theme.colors.primaryPressed
+                  : theme.colors.primary,
               },
             ]}
           >

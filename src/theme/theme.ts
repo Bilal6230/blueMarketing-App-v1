@@ -25,4 +25,4 @@ export const darkTheme: typeof lightTheme = {
 
 export type AppTheme = typeof lightTheme;
 export type ThemePreference = 'light' | 'dark' | 'system';
-export type ThemeColorToken = keyof typeof lightColors;
+export type ThemeColorToken = keyof typeof lightTheme.colors;

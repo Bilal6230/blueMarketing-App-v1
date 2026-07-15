@@ -1,5 +1,10 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import type { AccessibilityState, GestureResponderEvent, StyleProp, ViewStyle } from 'react-native';
+import type {
+  AccessibilityState,
+  GestureResponderEvent,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { AppText } from '@/components/AppText';
@@ -46,14 +51,16 @@ export function AppButton({
         styles.button,
         {
           backgroundColor: palette.background(pressed, isDisabled),
-          borderColor: palette.border(pressed, isDisabled),
+          borderColor: palette.border(),
         },
         style,
       ]}
       testID={testID}
     >
       <View style={styles.content}>
-        {loading ? <ActivityIndicator color={palette.text} size="small" /> : null}
+        {loading ? (
+          <ActivityIndicator color={palette.text} size="small" />
+        ) : null}
         <AppText color={palette.textColor} variant="button">
           {title}
         </AppText>

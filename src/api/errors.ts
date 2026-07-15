@@ -1,11 +1,16 @@
-import axios, { AxiosError } from 'axios';
+import { AxiosError, isAxiosError } from 'axios';
+import { z } from 'zod';
 
 import type { ApiErrorResponse, AppApiError } from '@/api/contracts';
 
 const DEFAULT_ERROR_KEY = 'unexpected_response';
+const DEFAULT_MESSAGE = 'Unexpected response from the server.';
+
+const payloadRecordSchema = z.record(z.string(), z.unknown());
+const validationErrorsSchema = z.record(z.string(), z.array(z.string()));
 
 export function normalizeApiError(error: unknown): AppApiError {
-  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+  if (isAxiosError(error)) {
     return normalizeAxiosError(error);
   }
 
@@ -40,14 +45,14 @@ function normalizeAxiosError(error: AxiosError<ApiErrorResponse>): AppApiError {
   }
 
   const statusCode = error.response?.status ?? null;
-  const payload = error.response?.data;
+  const payload = readApiErrorPayload(error.response?.data);
   const requestId = readHeader(error, 'x-request-id');
 
   if (!payload) {
     return {
       statusCode,
-      errorKey: DEFAULT_ERROR_KEY,
-      message: 'Unexpected response from the server.',
+      errorKey: resolveFallbackErrorKey(statusCode),
+      message: DEFAULT_MESSAGE,
       requestId,
       validationErrors: {},
       retryable: isRetryableStatus(statusCode),
@@ -56,23 +61,15 @@ function normalizeAxiosError(error: AxiosError<ApiErrorResponse>): AppApiError {
 
   return {
     statusCode,
-    errorKey: normalizeErrorKey(payload, statusCode),
-    message: payload.message,
+    errorKey: payload.errorKey ?? resolveFallbackErrorKey(statusCode),
+    message: payload.message ?? DEFAULT_MESSAGE,
     requestId,
-    validationErrors: payload.errors ?? {},
+    validationErrors: payload.validationErrors,
     retryable: isRetryableStatus(statusCode),
   };
 }
 
-function normalizeErrorKey(payload: ApiErrorResponse, statusCode: number | null) {
-  if (payload.error_key?.trim()) {
-    return payload.error_key.trim();
-  }
-
-  if (payload.error?.trim()) {
-    return payload.error.trim();
-  }
-
+function resolveFallbackErrorKey(statusCode: number | null) {
   switch (statusCode) {
     case 401:
       return 'unauthenticated';
@@ -87,6 +84,9 @@ function normalizeErrorKey(payload: ApiErrorResponse, statusCode: number | null)
     case 429:
       return 'rate_limited';
     case 500:
+    case 502:
+    case 503:
+    case 504:
       return 'server_error';
     default:
       return DEFAULT_ERROR_KEY;
@@ -94,7 +94,63 @@ function normalizeErrorKey(payload: ApiErrorResponse, statusCode: number | null)
 }
 
 function isRetryableStatus(statusCode: number | null) {
-  return statusCode === null || statusCode >= 500;
+  if (statusCode === null) {
+    return true;
+  }
+
+  return statusCode >= 500;
+}
+
+function readApiErrorPayload(payload: unknown) {
+  const parsedRecord = payloadRecordSchema.safeParse(payload);
+
+  if (!parsedRecord.success) {
+    return null;
+  }
+
+  const record = parsedRecord.data;
+  const message = sanitizeMessage(record.message);
+  const errorKey =
+    sanitizeString(record.error_key) ?? sanitizeString(record.error);
+  const validationErrors = readValidationErrors(record.errors);
+
+  if (!message && !errorKey && Object.keys(validationErrors).length === 0) {
+    return null;
+  }
+
+  return {
+    errorKey,
+    message,
+    validationErrors,
+  };
+}
+
+function readValidationErrors(value: unknown) {
+  const parsedValidationErrors = validationErrorsSchema.safeParse(value);
+  return parsedValidationErrors.success ? parsedValidationErrors.data : {};
+}
+
+function sanitizeString(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+function sanitizeMessage(value: unknown) {
+  const sanitizedValue = sanitizeString(value);
+
+  if (!sanitizedValue) {
+    return null;
+  }
+
+  if (/<\/?[a-z][\s\S]*>/i.test(sanitizedValue)) {
+    return null;
+  }
+
+  return sanitizedValue;
 }
 
 function readHeader(error: AxiosError, headerName: string) {

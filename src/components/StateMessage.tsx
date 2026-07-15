@@ -11,7 +11,10 @@ type StateMessageProps = {
   variant: StateVariant;
 };
 
-const variantTone: Record<StateVariant, 'primary' | 'warning' | 'danger' | 'textMuted'> = {
+const variantTone: Record<
+  StateVariant,
+  'primary' | 'warning' | 'danger' | 'textMuted'
+> = {
   empty: 'textMuted',
   error: 'danger',
   loading: 'primary',

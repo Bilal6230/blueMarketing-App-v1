@@ -13,7 +13,8 @@ export function FoundationHomeScreen() {
           </AppText>
           <AppText variant="title">Application foundation ready</AppText>
           <AppText color="textSecondary">
-            Theme, navigation, API infrastructure and secure session services are configured.
+            Theme, navigation, API infrastructure and secure session services
+            are configured.
           </AppText>
         </AppCard>
       </View>

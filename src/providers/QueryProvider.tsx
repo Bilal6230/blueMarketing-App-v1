@@ -16,7 +16,7 @@ export const queryClient = new QueryClient({
           return false;
         }
 
-        const apiError = error as AppApiError;
+        const apiError = error as unknown as AppApiError;
         return Boolean(apiError?.retryable);
       },
     },
@@ -24,5 +24,7 @@ export const queryClient = new QueryClient({
 });
 
 export function QueryProvider({ children }: PropsWithChildren) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 }

@@ -1,13 +1,17 @@
 const normalizeValue = (value: string) => value.trim().toLowerCase();
-const normalizeList = (values: string[]) =>
-  [...new Set(values.map((value) => normalizeValue(value)).filter(Boolean))];
+const normalizeList = (values: string[]) => [
+  ...new Set(values.map((value) => normalizeValue(value)).filter(Boolean)),
+];
 
 export function hasPermission(permissions: string[], permission: string) {
   const normalizedPermission = normalizeValue(permission);
   return normalizeList(permissions).includes(normalizedPermission);
 }
 
-export function hasAnyPermission(permissions: string[], requiredPermissions: string[]) {
+export function hasAnyPermission(
+  permissions: string[],
+  requiredPermissions: string[],
+) {
   if (requiredPermissions.length === 0) {
     return false;
   }
@@ -18,7 +22,10 @@ export function hasAnyPermission(permissions: string[], requiredPermissions: str
   );
 }
 
-export function hasAllPermissions(permissions: string[], requiredPermissions: string[]) {
+export function hasAllPermissions(
+  permissions: string[],
+  requiredPermissions: string[],
+) {
   if (requiredPermissions.length === 0) {
     return true;
   }
@@ -40,5 +47,7 @@ export function hasAnyRole(roles: string[], requiredRoles: string[]) {
   }
 
   const normalizedRoles = normalizeList(roles);
-  return normalizeList(requiredRoles).some((role) => normalizedRoles.includes(role));
+  return normalizeList(requiredRoles).some((role) =>
+    normalizedRoles.includes(role),
+  );
 }

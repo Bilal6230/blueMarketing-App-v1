@@ -1,12 +1,15 @@
-import axios from 'axios';
+import { create } from 'axios';
 
 import { normalizeApiError } from '@/api/errors';
 import { generateRequestId } from '@/api/requestId';
-import { getAccessTokenForRequest, notifyUnauthorized } from '@/api/tokenProvider';
+import {
+  getAccessTokenForRequest,
+  notifyUnauthorized,
+} from '@/api/tokenProvider';
 import { API_TIMEOUT_MS } from '@/config/constants';
 import { env } from '@/config/env';
 
-export const apiClient = axios.create({
+export const apiClient = create({
   baseURL: env.apiUrl,
   headers: {
     Accept: 'application/json',

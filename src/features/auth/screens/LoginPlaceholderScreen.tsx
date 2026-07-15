@@ -9,7 +9,10 @@ export function LoginPlaceholderScreen() {
   const { theme } = useAppTheme();
 
   return (
-    <Screen contentContainerStyle={styles.container} testID={testIds.loginScreen}>
+    <Screen
+      contentContainerStyle={styles.container}
+      testID={testIds.loginScreen}
+    >
       <View style={styles.topSpacing} />
       <AppCard padding="lg" style={styles.card} surface="elevated">
         <AppText color="primary" variant="eyebrow">
@@ -19,7 +22,9 @@ export function LoginPlaceholderScreen() {
         <AppText color="textSecondary">
           Secure access for authorised team members.
         </AppText>
-        <View style={[styles.divider, { borderColor: theme.colors.borderStrong }]} />
+        <View
+          style={[styles.divider, { borderColor: theme.colors.borderStrong }]}
+        />
         <AppText color="textMuted">
           Authentication integration will be added in the next sprint.
         </AppText>

@@ -1,4 +1,23 @@
-const lightColors = {
+export type ThemeColors = {
+  background: string;
+  border: string;
+  borderStrong: string;
+  danger: string;
+  info: string;
+  primary: string;
+  primaryPressed: string;
+  primarySoft: string;
+  success: string;
+  surface: string;
+  surfaceElevated: string;
+  surfaceMuted: string;
+  textMuted: string;
+  textPrimary: string;
+  textSecondary: string;
+  warning: string;
+};
+
+const lightColors: ThemeColors = {
   background: '#F3F7FC',
   border: '#D4DCE8',
   borderStrong: '#A5B4C7',
@@ -15,9 +34,9 @@ const lightColors = {
   textPrimary: '#122033',
   textSecondary: '#3E526A',
   warning: '#A8681A',
-} as const;
+};
 
-const darkColors: typeof lightColors = {
+const darkColors: ThemeColors = {
   background: '#08111D',
   border: '#22344A',
   borderStrong: '#46627F',

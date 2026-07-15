@@ -38,7 +38,7 @@ export function Screen({
   const Container = keyboardAware ? KeyboardAvoidingView : View;
   const containerProps = keyboardAware
     ? {
-        behavior: Platform.OS === 'ios' ? 'padding' : undefined,
+        behavior: Platform.OS === 'ios' ? ('padding' as const) : undefined,
       }
     : {};
 
@@ -52,13 +52,19 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.fill, styles.content, contentContainerStyle]}>{children}</View>
+    <View style={[styles.fill, styles.content, contentContainerStyle]}>
+      {children}
+    </View>
   );
 
   return (
     <SafeAreaView
       edges={['top', 'right', 'bottom', 'left']}
-      style={[styles.safeArea, { backgroundColor: theme.colors.background }, style]}
+      style={[
+        styles.safeArea,
+        { backgroundColor: theme.colors.background },
+        style,
+      ]}
       testID={testID}
     >
       <Container style={styles.fill} {...containerProps}>
@@ -82,9 +88,9 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   loadingOverlay: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
   safeArea: {

@@ -20,6 +20,8 @@ Zustand is used only for lightweight client state: session token presence, route
 
 Expo SecureStore is the correct baseline for mobile token storage in this sprint. Only the access token and selected project ID are stored. Passwords, user objects, permissions, and API payloads are excluded.
 
+Session persistence is treated as durable only after token and selected-project storage complete successfully. If token persistence fails, the store returns a typed failure result and does not mark the session authenticated. If logout deletion fails, the in-memory session is still cleared and any residual token remains untrusted during the next bootstrap until server validation or deletion succeeds.
+
 ## Why there is no generic UI framework
 
 Blue Marketing needs a custom premium design system. External component libraries would impose visual defaults too early, so this sprint establishes only semantic tokens and a few reusable primitives.
