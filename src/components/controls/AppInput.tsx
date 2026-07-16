@@ -4,8 +4,8 @@ import {
   StyleSheet,
   TextInput,
   View,
-  type TextInputProps,
   type TextInput as TextInputType,
+  type TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -30,11 +30,13 @@ export const AppInput = forwardRef<TextInputType, AppInputProps>(
       helperText,
       label,
       leadingIcon,
+      onBlur,
+      onFocus,
       success = false,
       successText,
       style,
       trailingAction,
-      ...props
+      ...textInputProps
     },
     ref,
   ) => {
@@ -42,10 +44,12 @@ export const AppInput = forwardRef<TextInputType, AppInputProps>(
     const [isFocused, setIsFocused] = useState(false);
     const describedBy = useId();
     const labelledBy = useId();
-    const shellTestID = props.testID ? `${props.testID}-shell` : undefined;
+    const shellTestID = textInputProps.testID
+      ? `${textInputProps.testID}-shell`
+      : undefined;
     const hasError = Boolean(errorText);
     const message = hasError ? errorText : success ? successText : helperText;
-    const resolvedLabel = props.accessibilityLabel ?? label;
+    const resolvedLabel = textInputProps.accessibilityLabel ?? label;
     const shellBorderColor = hasError
       ? theme.component.input.borderInvalid
       : success
@@ -98,26 +102,28 @@ export const AppInput = forwardRef<TextInputType, AppInputProps>(
           ) : null}
           <TextInput
             ref={ref}
-            accessibilityHint={props.accessibilityHint}
+            {...textInputProps}
+            accessibilityHint={textInputProps.accessibilityHint}
             accessibilityLabel={resolvedLabel}
             accessibilityState={{ disabled: !editable }}
             {...({
-              'aria-invalid': hasError || undefined,
               'aria-describedby': message ? describedBy : undefined,
+              'aria-invalid': hasError || undefined,
               'aria-labelledby': resolvedLabel ? labelledBy : undefined,
             } as object)}
             accessibilityLabelledBy={
-              Platform.OS === 'android' && resolvedLabel ? labelledBy : undefined
+              Platform.OS === 'android' && resolvedLabel
+                ? labelledBy
+                : undefined
             }
             editable={editable}
-            nativeID={props.nativeID}
             onBlur={(event) => {
               setIsFocused(false);
-              props.onBlur?.(event);
+              onBlur?.(event);
             }}
             onFocus={(event) => {
               setIsFocused(true);
-              props.onFocus?.(event);
+              onFocus?.(event);
             }}
             placeholderTextColor={theme.component.input.placeholder}
             selectionColor={theme.colors.primary}
@@ -129,7 +135,6 @@ export const AppInput = forwardRef<TextInputType, AppInputProps>(
               },
               style,
             ]}
-            {...props}
           />
           {trailingAction}
         </View>

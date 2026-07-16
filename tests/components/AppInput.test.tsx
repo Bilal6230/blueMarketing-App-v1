@@ -16,7 +16,9 @@ describe('AppInput', () => {
 
     expect(getByText('Email address')).toBeTruthy();
     expect(getByText('Helper copy')).toBeTruthy();
-    expect(getByLabelText('Email address').props.accessibilityLabel).toBe('Email address');
+    expect(getByLabelText('Email address').props.accessibilityLabel).toBe(
+      'Email address',
+    );
   });
 
   it('shows a focused border treatment', async () => {
@@ -39,11 +41,7 @@ describe('AppInput', () => {
       <AppInput errorText="Enter a valid email" label="Email address" />,
     );
     const success = await renderWithTheme(
-      <AppInput
-        label="Project code"
-        success
-        successText="Looks good"
-      />,
+      <AppInput label="Project code" success successText="Looks good" />,
     );
 
     expect(error.getByText('Enter a valid email')).toBeTruthy();
@@ -62,7 +60,10 @@ describe('AppInput', () => {
 
   it('wires helper text to the input description on web-style aria props', async () => {
     const { getByLabelText, getByText } = await renderWithTheme(
-      <AppInput helperText="We only use your work email" label="Email address" />,
+      <AppInput
+        helperText="We only use your work email"
+        label="Email address"
+      />,
     );
 
     const input = getByLabelText('Email address');
@@ -83,6 +84,51 @@ describe('AppInput', () => {
     });
     await waitFor(() => {
       expect(getByLabelText('Password').props.secureTextEntry).toBe(false);
+    });
+  });
+
+  it('keeps internal focus styling when a custom onFocus callback exists', async () => {
+    const handleFocus = jest.fn();
+    const { getByLabelText, getByTestId } = await renderWithTheme(
+      <AppInput label="Email address" onFocus={handleFocus} testID="email" />,
+    );
+
+    await act(async () => {
+      fireEvent(getByLabelText('Email address'), 'focus');
+    });
+
+    expect(handleFocus).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(getByTestId('email-shell')).toHaveStyle({
+        outlineWidth: 2,
+      });
+    });
+  });
+
+  it('clears internal focus styling when a custom onBlur callback exists', async () => {
+    const handleBlur = jest.fn();
+    const { getByLabelText, getByTestId } = await renderWithTheme(
+      <AppInput label="Email address" onBlur={handleBlur} testID="email" />,
+    );
+
+    await act(async () => {
+      fireEvent(getByLabelText('Email address'), 'focus');
+    });
+    await waitFor(() => {
+      expect(getByTestId('email-shell')).toHaveStyle({
+        outlineWidth: 2,
+      });
+    });
+
+    await act(async () => {
+      fireEvent(getByLabelText('Email address'), 'blur');
+    });
+
+    expect(handleBlur).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(getByTestId('email-shell')).toHaveStyle({
+        outlineWidth: 0,
+      });
     });
   });
 });

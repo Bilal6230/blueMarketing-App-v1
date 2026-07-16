@@ -9,7 +9,10 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { MobilePreviewFrame } from '@/components/layout/MobilePreviewFrame';
 import { BottomNavigation } from '@/components/navigation/BottomNavigation';
@@ -94,7 +97,9 @@ export function AppTabScaffold({
     >
       <MobilePreviewFrame>
         <Container
-          behavior={Platform.OS === 'ios' && keyboardAware ? 'padding' : undefined}
+          behavior={
+            Platform.OS === 'ios' && keyboardAware ? 'padding' : undefined
+          }
           style={styles.safeArea}
         >
           <View style={styles.safeArea}>

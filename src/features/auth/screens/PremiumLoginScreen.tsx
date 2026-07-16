@@ -46,7 +46,9 @@ export function PremiumLoginScreen({
     setLoading(true);
     timeoutRef.current = setTimeout(() => {
       setLoading(false);
-      setNotice('No request was sent. This preview demonstrates the loading state only.');
+      setNotice(
+        'No request was sent. This preview demonstrates the loading state only.',
+      );
     }, 900);
   };
 
@@ -85,7 +87,9 @@ export function PremiumLoginScreen({
           <AppButton
             loading={loading}
             disabled={!isPreviewMode}
-            onPress={isPreviewMode ? () => void handlePreviewPress() : undefined}
+            onPress={
+              isPreviewMode ? () => void handlePreviewPress() : undefined
+            }
             testID="login-sign-in-button"
             title="Sign in"
             variant="primary"

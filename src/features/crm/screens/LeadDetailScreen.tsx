@@ -44,7 +44,9 @@ export function LeadDetailScreen() {
               fullWidth={false}
               onPress={async () => {
                 await lightImpactFeedback();
-                setNotice('Calling is not connected in this prototype. No phone action was started.');
+                setNotice(
+                  'Calling is not connected in this prototype. No phone action was started.',
+                );
               }}
               title="Call lead"
               variant="primary"
@@ -53,7 +55,9 @@ export function LeadDetailScreen() {
               fullWidth={false}
               onPress={async () => {
                 await lightImpactFeedback();
-                setNotice('Add follow-up is a preview-only action in this sprint.');
+                setNotice(
+                  'Add follow-up is a preview-only action in this sprint.',
+                );
               }}
               title="Add follow-up"
               variant="secondary"
@@ -94,7 +98,9 @@ export function LeadDetailScreen() {
           actionLabel="Edit"
           onPressAction={async () => {
             await lightImpactFeedback();
-            setNotice('Editing this lead is not connected yet. The timeline is read-only in this preview.');
+            setNotice(
+              'Editing this lead is not connected yet. The timeline is read-only in this preview.',
+            );
           }}
           title="Activity timeline"
         />

@@ -6,6 +6,7 @@ import { PressableScale } from '@/motion';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 type FilterChipProps = {
+  accessibilityLabel?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress?: () => void;
@@ -13,6 +14,7 @@ type FilterChipProps = {
 };
 
 export function FilterChip({
+  accessibilityLabel,
   icon,
   label,
   onPress,
@@ -22,7 +24,7 @@ export function FilterChip({
 
   return (
     <PressableScale
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
@@ -61,7 +63,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: 14,
   },
 });

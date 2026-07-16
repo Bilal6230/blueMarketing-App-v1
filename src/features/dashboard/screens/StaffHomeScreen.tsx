@@ -39,7 +39,11 @@ export function StaffHomeScreen() {
   );
 
   return (
-    <AppTabScaffold items={navigation} selectedKey="home" testID="staff-home-screen">
+    <AppTabScaffold
+      items={navigation}
+      selectedKey="home"
+      testID="staff-home-screen"
+    >
       <View style={styles.container}>
         <View style={styles.headerSection}>
           <AppHeader
@@ -48,7 +52,9 @@ export function StaffHomeScreen() {
                 label={previewUsers.staff.project}
                 onPress={async () => {
                   await warningFeedback();
-                  setNotice('Project switching is a preview-only entry point in this sprint.');
+                  setNotice(
+                    'Project switching is a preview-only entry point in this sprint.',
+                  );
                 }}
               />
             }
@@ -60,7 +66,9 @@ export function StaffHomeScreen() {
                   icon="notifications-outline"
                   onPress={async () => {
                     await warningFeedback();
-                    setNotice('Notifications are not connected yet. This is a preview notice only.');
+                    setNotice(
+                      'Notifications are not connected yet. This is a preview notice only.',
+                    );
                   }}
                   testID="staff-notifications-button"
                 />
@@ -115,7 +123,9 @@ export function StaffHomeScreen() {
               label={item}
               onPress={async () => {
                 await successFeedback();
-                setNotice(`${item} is a preview-only task card in this sprint.`);
+                setNotice(
+                  `${item} is a preview-only task card in this sprint.`,
+                );
               }}
             />
           ))}
@@ -126,7 +136,9 @@ export function StaffHomeScreen() {
             actionLabel="Add lead"
             onPressAction={async () => {
               await warningFeedback();
-              setNotice('Add lead is not connected yet. No CRM mutation is performed.');
+              setNotice(
+                'Add lead is not connected yet. No CRM mutation is performed.',
+              );
             }}
             title="Recent lead activity"
           />
@@ -136,7 +148,9 @@ export function StaffHomeScreen() {
               key={item}
               onPress={async () => {
                 await successFeedback();
-                setNotice('Lead activity rows are preview summaries in this sprint.');
+                setNotice(
+                  'Lead activity rows are preview summaries in this sprint.',
+                );
               }}
               subtitle={item}
               title="Lead activity"

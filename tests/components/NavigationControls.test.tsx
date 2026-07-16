@@ -20,7 +20,9 @@ describe('navigation and selection controls', () => {
       />,
     );
 
-    expect(getByTestId('notifications-button').props.accessibilityState).toEqual({
+    expect(
+      getByTestId('notifications-button').props.accessibilityState,
+    ).toEqual({
       disabled: true,
       selected: true,
     });

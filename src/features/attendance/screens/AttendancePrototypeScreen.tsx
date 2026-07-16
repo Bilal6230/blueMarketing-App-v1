@@ -38,7 +38,7 @@ export function AttendancePrototypeScreen() {
             title: 'Checked out at 6:05 PM',
           }
         : {
-            subtitle: 'Blue Residency Â· Thursday, July 16, 2026',
+            subtitle: `Blue Residency \u00B7 Thursday, July 16, 2026`,
             title: 'You have not checked in',
           };
 
@@ -74,7 +74,7 @@ export function AttendancePrototypeScreen() {
       <AppCard surface="muted">
         <AppText variant="labelStrong">Project and shift context</AppText>
         <AppText color="textSecondary" variant="caption">
-          Blue Residency Â· Thursday, July 16, 2026
+          {`Blue Residency \u00B7 Thursday, July 16, 2026`}
         </AppText>
       </AppCard>
 
@@ -93,13 +93,17 @@ export function AttendancePrototypeScreen() {
           if (state === 'checked_in') {
             await successFeedback();
             setState('checked_out');
-            setNotice('The shift has been completed. This prototype will not check you in again from the checked-out state.');
+            setNotice(
+              'The shift has been completed. This prototype will not check you in again from the checked-out state.',
+            );
             return;
           }
 
           await lightImpactFeedback();
           setState('checked_in');
-          setNotice('Attendance preview updated locally only. No backend attendance entry was created.');
+          setNotice(
+            'Attendance preview updated locally only. No backend attendance entry was created.',
+          );
         }}
         title={
           state === 'checked_in'

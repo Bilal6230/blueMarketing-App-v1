@@ -13,7 +13,9 @@ describe('dashboard screens', () => {
   });
 
   it('shows a preview notice for staff notifications', async () => {
-    const { findByText, getByTestId } = await renderWithTheme(<StaffHomeScreen />);
+    const { findByText, getByTestId } = await renderWithTheme(
+      <StaffHomeScreen />,
+    );
 
     await act(async () => {
       fireEvent.press(getByTestId('staff-notifications-button'));

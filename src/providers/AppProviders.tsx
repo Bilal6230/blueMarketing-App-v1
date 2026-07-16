@@ -55,11 +55,14 @@ function BootstrapGate({ children }: PropsWithChildren) {
       return;
     }
 
-    logger.warn('Custom fonts failed to load. Falling back to system rendering.', {
-      family: 'Manrope',
-      reason: fontError instanceof Error ? fontError.name : 'unknown',
-      source: 'fontLoader',
-    });
+    logger.warn(
+      'Custom fonts failed to load. Falling back to system rendering.',
+      {
+        family: 'Manrope',
+        reason: fontError instanceof Error ? fontError.name : 'unknown',
+        source: 'fontLoader',
+      },
+    );
   }, [fontError]);
 
   useEffect(() => {

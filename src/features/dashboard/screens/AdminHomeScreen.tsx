@@ -34,7 +34,11 @@ export function AdminHomeScreen() {
   );
 
   return (
-    <AppTabScaffold items={navigation} selectedKey="home" testID="admin-home-screen">
+    <AppTabScaffold
+      items={navigation}
+      selectedKey="home"
+      testID="admin-home-screen"
+    >
       <View style={styles.container}>
         <AppHeader
           leftAction={
@@ -42,7 +46,9 @@ export function AdminHomeScreen() {
               label={previewUsers.admin.project}
               onPress={async () => {
                 await warningFeedback();
-                setNotice('Project selection remains a preview-only control in this sprint.');
+                setNotice(
+                  'Project selection remains a preview-only control in this sprint.',
+                );
               }}
             />
           }

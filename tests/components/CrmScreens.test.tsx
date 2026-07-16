@@ -13,10 +13,11 @@ jest.mock('expo-router', () => ({
 
 describe('CRM preview screens', () => {
   it('renders the loaded CRM state', async () => {
-    const { getByText } = await renderWithTheme(<LeadListScreen />);
+    const { getByText, toJSON } = await renderWithTheme(<LeadListScreen />);
 
     expect(getByText('Lead pipeline')).toBeTruthy();
     expect(getByText('3 leads in this view')).toBeTruthy();
+    expect(JSON.stringify(toJSON())).not.toContain('Â');
   });
 
   it('renders offline and error CRM states on demand', async () => {
@@ -26,7 +27,9 @@ describe('CRM preview screens', () => {
       fireEvent.press(getByText('Offline').parent as never);
     });
     await waitFor(() => {
-      expect(getByText('You are viewing offline prototype content')).toBeTruthy();
+      expect(
+        getByText('You are viewing offline prototype content'),
+      ).toBeTruthy();
     });
 
     await act(async () => {

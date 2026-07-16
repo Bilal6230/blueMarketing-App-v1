@@ -5,7 +5,11 @@ import { renderWithTheme } from '../utils/renderWithTheme';
 
 describe('AttendancePrototypeScreen', () => {
   it('supports the checked-in to checked-out transition without double check-in', async () => {
-    const { getByTestId, getByText } = await renderWithTheme(<AttendancePrototypeScreen />);
+    const { getByTestId, getByText, toJSON } = await renderWithTheme(
+      <AttendancePrototypeScreen />,
+    );
+
+    expect(JSON.stringify(toJSON())).not.toContain('Â');
 
     await act(async () => {
       fireEvent.press(getByTestId('attendance-primary-action'));

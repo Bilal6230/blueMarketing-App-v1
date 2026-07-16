@@ -33,7 +33,9 @@ describe('PremiumLoginScreen', () => {
         'Authentication integration is not connected in this foundation route yet.',
       ),
     ).toBeTruthy();
-    expect(getByTestId('login-sign-in-button').props.accessibilityState.disabled).toBe(true);
+    expect(
+      getByTestId('login-sign-in-button').props.accessibilityState.disabled,
+    ).toBe(true);
   });
 
   it('shows preview loading feedback without mutating auth state', async () => {
@@ -49,7 +51,9 @@ describe('PremiumLoginScreen', () => {
     });
     await waitFor(() => {
       expect(
-        getByText('No request was sent. This preview demonstrates the loading state only.'),
+        getByText(
+          'No request was sent. This preview demonstrates the loading state only.',
+        ),
       ).toBeTruthy();
     });
     expect(useAuthStore.getState().accessToken).toBeNull();

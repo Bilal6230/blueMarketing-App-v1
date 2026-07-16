@@ -11,7 +11,11 @@ describe('typography configuration', () => {
   it('maps typography variants to Manrope families', () => {
     expect(String(typography.body.fontFamily)).toContain('Manrope_400Regular');
     expect(String(typography.label.fontFamily)).toContain('Manrope_500Medium');
-    expect(String(typography.headingSmall.fontFamily)).toContain('Manrope_600SemiBold');
-    expect(String(typography.displayMedium.fontFamily)).toContain('Manrope_700Bold');
+    expect(String(typography.headingSmall.fontFamily)).toContain(
+      'Manrope_600SemiBold',
+    );
+    expect(String(typography.displayMedium.fontFamily)).toContain(
+      'Manrope_700Bold',
+    );
   });
 });
