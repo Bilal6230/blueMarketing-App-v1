@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import {
   AppButton,
@@ -17,15 +17,38 @@ import { FadeInView } from '@/motion';
 import { lightImpactFeedback } from '@/services/haptics';
 import { testIds } from '@/utils/testIds';
 
+type PremiumLoginMode = 'foundation' | 'preview';
+
 type PremiumLoginScreenProps = {
-  previewMode?: boolean;
+  mode?: PremiumLoginMode;
 };
 
 export function PremiumLoginScreen({
-  previewMode = false,
+  mode = 'foundation',
 }: PremiumLoginScreenProps) {
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [remember, setRemember] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPreviewMode = mode === 'preview';
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handlePreviewPress = async () => {
+    await lightImpactFeedback();
+    setNotice(null);
+    setLoading(true);
+    timeoutRef.current = setTimeout(() => {
+      setLoading(false);
+      setNotice('No request was sent. This preview demonstrates the loading state only.');
+    }, 900);
+  };
 
   return (
     <Screen contentContainerStyle={styles.screen} testID={testIds.loginScreen}>
@@ -61,36 +84,33 @@ export function PremiumLoginScreen({
           />
           <AppButton
             loading={loading}
-            onPress={async () => {
-              await lightImpactFeedback();
-              setLoading(true);
-              setTimeout(() => setLoading(false), 900);
-            }}
+            disabled={!isPreviewMode}
+            onPress={isPreviewMode ? () => void handlePreviewPress() : undefined}
+            testID="login-sign-in-button"
             title="Sign in"
             variant="primary"
           />
+          {isPreviewMode ? (
+            <InlineMessage
+              message={
+                notice ??
+                'Preview mode may show loading, but it never stores credentials or sends an authentication request.'
+              }
+              title="Preview interaction only"
+              tone="information"
+            />
+          ) : (
+            <InlineMessage
+              message="Authentication integration is not connected in this foundation route yet."
+              title="Foundation layout only"
+              tone="warning"
+            />
+          )}
           <AppDivider />
           <AppText color="textMuted" variant="caption">
             Secure device-level storage and session validation will be connected
             in a later sprint.
           </AppText>
-          <Pressable
-            accessibilityHint="Prototype help link"
-            accessibilityLabel="Open support placeholder"
-            accessibilityRole="link"
-            onPress={() => Linking.openURL('https://example.com/support')}
-          >
-            <AppText color="primary" variant="labelStrong">
-              Need help accessing Blue Marketing?
-            </AppText>
-          </Pressable>
-          {previewMode ? (
-            <InlineMessage
-              message="No credentials are stored, and no real authentication request is sent in this sprint."
-              title="Preview interaction only"
-              tone="information"
-            />
-          ) : null}
         </AppCard>
       </FadeInView>
       <View style={styles.bottomSpace} />

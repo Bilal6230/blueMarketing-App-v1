@@ -56,6 +56,11 @@ export function BottomNavigationItem({
       />
       <AppText
         color={selected ? 'textPrimary' : 'textMuted'}
+        style={{
+          color: selected
+            ? theme.component.navigation.labelSelected
+            : theme.component.navigation.labelDefault,
+        }}
         variant="captionStrong"
       >
         {item.label}
@@ -76,5 +81,6 @@ const styles = StyleSheet.create({
     gap: 6,
     minHeight: 56,
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
 });

@@ -1,35 +1,49 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   AppButton,
   AppCard,
+  AppTabScaffold,
   AppText,
   EmptyState,
+  ErrorState,
   FilterChip,
+  InlineMessage,
   ListItem,
   OfflineBanner,
-  Screen,
   SearchInput,
+  SegmentedControl,
   SectionHeader,
   SkeletonCard,
   StatusBadge,
 } from '@/components';
+import { staffPreviewNavigation } from '@/features/preview/navigationModel';
 import { crmLeadsMock } from '@/mocks/crm';
 import { lightImpactFeedback } from '@/services/haptics';
 
 const filters = ['All', 'Active', 'Overdue', 'Pending'] as const;
+const previewStates = [
+  { label: 'Loaded', value: 'loaded' },
+  { label: 'Loading', value: 'loading' },
+  { label: 'Empty', value: 'empty' },
+  { label: 'Filtered empty', value: 'filtered_empty' },
+  { label: 'Offline', value: 'offline' },
+  { label: 'Error', value: 'error' },
+] as const;
+
+type PreviewState = (typeof previewStates)[number]['value'];
 
 export function LeadListScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<(typeof filters)[number]>('All');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<PreviewState>('loaded');
   const [search, setSearch] = useState('');
-  const [showLoading, setShowLoading] = useState(false);
-  const [showEmpty, setShowEmpty] = useState(false);
 
   const leads = useMemo(() => {
-    if (showEmpty) {
+    if (previewState === 'empty' || previewState === 'filtered_empty') {
       return [];
     }
 
@@ -43,18 +57,29 @@ export function LeadListScreen() {
         .includes(search.toLowerCase());
       return filterMatch && searchMatch;
     });
-  }, [filter, search, showEmpty]);
+  }, [filter, previewState, search]);
 
   return (
-    <Screen>
+    <AppTabScaffold
+      items={staffPreviewNavigation}
+      selectedKey="crm"
+      testID="crm-lead-list-screen"
+    >
       <SectionHeader subtitle="CRM list preview" title="Lead pipeline" />
+      {notice ? (
+        <InlineMessage
+          message={notice}
+          title="Preview notice"
+          tone="information"
+        />
+      ) : null}
       <SearchInput
         label="Search leads"
         onChangeText={setSearch}
         placeholder="Search by lead or assigned user"
         value={search}
       />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <View style={styles.filterRow}>
         {filters.map((item) => (
           <FilterChip
             key={item}
@@ -64,47 +89,53 @@ export function LeadListScreen() {
           />
         ))}
       </View>
-      <OfflineBanner />
       <AppCard surface="muted">
         <AppText variant="labelStrong">
           {leads.length} leads in this view
         </AppText>
         <AppText color="textSecondary" variant="caption">
-          Toggle loading and empty states for review.
+          Review explicit preview states for this prototype list.
         </AppText>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <AppButton
-            compact
-            fullWidth={false}
-            onPress={() => setShowLoading((value) => !value)}
-            title={showLoading ? 'Hide loading' : 'Show loading'}
-            variant="secondary"
-          />
-          <AppButton
-            compact
-            fullWidth={false}
-            onPress={() => setShowEmpty((value) => !value)}
-            title={showEmpty ? 'Hide empty' : 'Show empty'}
-            variant="ghost"
-          />
-        </View>
+        <SegmentedControl
+          accessibilityLabel="CRM preview state"
+          onChange={setPreviewState}
+          options={[...previewStates]}
+          value={previewState}
+        />
       </AppCard>
 
-      {showLoading ? (
+      {previewState === 'offline' ? <OfflineBanner /> : null}
+
+      {previewState === 'loading' ? (
         <>
           <SkeletonCard />
           <SkeletonCard />
         </>
+      ) : previewState === 'error' ? (
+        <ErrorState
+          actionLabel="Restore loaded state"
+          onPressAction={() => setPreviewState('loaded')}
+          subtitle="No CRM request was sent. This error state is available only for UI review."
+          title="CRM preview error"
+        />
       ) : leads.length === 0 ? (
         <EmptyState
           actionLabel="Reset filters"
           onPressAction={() => {
             setFilter('All');
             setSearch('');
-            setShowEmpty(false);
+            setPreviewState('loaded');
           }}
-          subtitle="No leads match the current preview filters."
-          title="Nothing to review right now"
+          subtitle={
+            previewState === 'filtered_empty'
+              ? 'No leads match the current preview filters.'
+              : 'There are no leads in this selected preview state.'
+          }
+          title={
+            previewState === 'filtered_empty'
+              ? 'Nothing matches your filters'
+              : 'Nothing to review right now'
+          }
         />
       ) : (
         leads.map((lead) => (
@@ -115,7 +146,7 @@ export function LeadListScreen() {
             icon="person-outline"
             key={lead.name}
             onPress={() => router.push('/(preview)/lead-detail')}
-            subtitle={`${lead.maskedPhone} · ${lead.followUp} · Assigned to ${lead.assignedTo}`}
+            subtitle={`${lead.maskedPhone} Â· ${lead.followUp} Â· Assigned to ${lead.assignedTo}`}
             title={lead.name}
           />
         ))
@@ -124,10 +155,19 @@ export function LeadListScreen() {
       <AppButton
         onPress={async () => {
           await lightImpactFeedback();
+          setNotice('Add lead is a preview-only action. No lead is created in this sprint.');
         }}
         title="Add lead"
         trailingIcon="add-outline"
       />
-    </Screen>
+    </AppTabScaffold>
   );
 }
+
+const styles = StyleSheet.create({
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+});

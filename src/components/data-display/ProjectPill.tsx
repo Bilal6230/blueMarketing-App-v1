@@ -3,17 +3,22 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '@/components/controls/AppText';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { PressableScale } from '@/motion';
 
 type ProjectPillProps = {
   label: string;
+  onPress?: () => void;
 };
 
-export function ProjectPill({ label }: ProjectPillProps) {
+export function ProjectPill({ label, onPress }: ProjectPillProps) {
   const { theme } = useAppTheme();
+  const Container = onPress ? PressableScale : View;
 
   return (
-    <View
+    <Container
       accessibilityLabel={`Project ${label}`}
+      accessibilityRole={onPress ? 'button' : undefined}
+      onPress={onPress}
       style={{
         alignItems: 'center',
         alignSelf: 'flex-start',
@@ -34,6 +39,6 @@ export function ProjectPill({ label }: ProjectPillProps) {
       <AppText color="primary" variant="captionStrong">
         {label}
       </AppText>
-    </View>
+    </Container>
   );
 }

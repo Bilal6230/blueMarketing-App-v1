@@ -2,33 +2,29 @@ import { Platform, StyleSheet } from 'react-native';
 
 import type { TypographyScale } from '@/theme/types';
 
-const fontFamily = Platform.select({
-  android: 'Manrope_400Regular',
-  ios: 'Manrope-Regular',
-  web: '"Manrope", "Segoe UI", sans-serif',
-  default: 'System',
-});
+export const manropeFontFamilies = {
+  bold:
+    Platform.OS === 'web'
+      ? 'Manrope_700Bold, Manrope, "Segoe UI", sans-serif'
+      : 'Manrope_700Bold',
+  medium:
+    Platform.OS === 'web'
+      ? 'Manrope_500Medium, Manrope, "Segoe UI", sans-serif'
+      : 'Manrope_500Medium',
+  regular:
+    Platform.OS === 'web'
+      ? 'Manrope_400Regular, Manrope, "Segoe UI", sans-serif'
+      : 'Manrope_400Regular',
+  semiBold:
+    Platform.OS === 'web'
+      ? 'Manrope_600SemiBold, Manrope, "Segoe UI", sans-serif'
+      : 'Manrope_600SemiBold',
+} as const;
 
-const fontFamilyMedium = Platform.select({
-  android: 'Manrope_500Medium',
-  ios: 'Manrope-Medium',
-  web: '"Manrope", "Segoe UI", sans-serif',
-  default: 'System',
-});
-
-const fontFamilySemiBold = Platform.select({
-  android: 'Manrope_600SemiBold',
-  ios: 'Manrope-SemiBold',
-  web: '"Manrope", "Segoe UI", sans-serif',
-  default: 'System',
-});
-
-const fontFamilyBold = Platform.select({
-  android: 'Manrope_700Bold',
-  ios: 'Manrope-Bold',
-  web: '"Manrope", "Segoe UI", sans-serif',
-  default: 'System',
-});
+const fontFamily = manropeFontFamilies.regular;
+const fontFamilyMedium = manropeFontFamilies.medium;
+const fontFamilySemiBold = manropeFontFamilies.semiBold;
+const fontFamilyBold = manropeFontFamilies.bold;
 
 const tabular = Platform.select({
   web: { fontVariantNumeric: ['tabular-nums'] as const },

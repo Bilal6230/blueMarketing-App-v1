@@ -4,13 +4,15 @@ import { StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppCard,
+  AppTabScaffold,
   AppText,
   HeroMetricCard,
+  InlineMessage,
   ProgressBar,
-  Screen,
   SegmentedControl,
   TimelineItem,
 } from '@/components';
+import { staffPreviewNavigation } from '@/features/preview/navigationModel';
 import { attendanceMock } from '@/mocks/attendance';
 import {
   lightImpactFeedback,
@@ -21,6 +23,7 @@ import {
 type AttendanceState = 'not_checked_in' | 'checked_in' | 'checked_out';
 
 export function AttendancePrototypeScreen() {
+  const [notice, setNotice] = useState<string | null>(null);
   const [state, setState] = useState<AttendanceState>('not_checked_in');
 
   const hero =
@@ -31,20 +34,25 @@ export function AttendancePrototypeScreen() {
         }
       : state === 'checked_out'
         ? {
-            subtitle: 'Shift completed for today',
+            subtitle: 'Shift completed for Thursday, July 16, 2026',
             title: 'Checked out at 6:05 PM',
           }
         : {
-            subtitle: 'Blue Residency · Wednesday, 15 July',
+            subtitle: 'Blue Residency Â· Thursday, July 16, 2026',
             title: 'You have not checked in',
           };
 
   return (
-    <Screen>
+    <AppTabScaffold
+      items={staffPreviewNavigation}
+      selectedKey="attendance"
+      testID="attendance-prototype-screen"
+    >
       <SegmentedControl
         accessibilityLabel="Attendance state switcher"
         onChange={async (value) => {
           await selectionFeedback();
+          setNotice(null);
           setState(value);
         }}
         options={[
@@ -54,6 +62,21 @@ export function AttendancePrototypeScreen() {
         ]}
         value={state}
       />
+
+      {notice ? (
+        <InlineMessage
+          message={notice}
+          title="Preview notice"
+          tone="information"
+        />
+      ) : null}
+
+      <AppCard surface="muted">
+        <AppText variant="labelStrong">Project and shift context</AppText>
+        <AppText color="textSecondary" variant="caption">
+          Blue Residency Â· Thursday, July 16, 2026
+        </AppText>
+      </AppCard>
 
       <HeroMetricCard
         caption="Attendance hero"
@@ -65,17 +88,28 @@ export function AttendancePrototypeScreen() {
       />
 
       <AppButton
+        disabled={state === 'checked_out'}
         onPress={async () => {
           if (state === 'checked_in') {
             await successFeedback();
             setState('checked_out');
+            setNotice('The shift has been completed. This prototype will not check you in again from the checked-out state.');
             return;
           }
 
           await lightImpactFeedback();
           setState('checked_in');
+          setNotice('Attendance preview updated locally only. No backend attendance entry was created.');
         }}
-        title={state === 'checked_in' ? 'Check out' : 'Check in now'}
+        title={
+          state === 'checked_in'
+            ? 'Check out'
+            : state === 'checked_out'
+              ? 'Shift completed'
+              : 'Check in now'
+        }
+        testID="attendance-primary-action"
+        variant={state === 'checked_out' ? 'secondary' : 'primary'}
       />
 
       <AppCard>
@@ -101,7 +135,7 @@ export function AttendancePrototypeScreen() {
           />
         ))}
       </AppCard>
-    </Screen>
+    </AppTabScaffold>
   );
 }
 

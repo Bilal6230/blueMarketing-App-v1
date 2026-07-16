@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/controls/AppText';
 import { AppButton } from '@/components/controls/AppButton';
@@ -17,15 +17,8 @@ export function SectionHeader({
   title,
 }: SectionHeaderProps) {
   return (
-    <View
-      style={{
-        alignItems: 'flex-start',
-        flexDirection: 'row',
-        gap: 12,
-        justifyContent: 'space-between',
-      }}
-    >
-      <View style={{ flex: 1, gap: 2 }}>
+    <View style={styles.row}>
+      <View style={styles.copy}>
         <AppText variant="headingSmall">{title}</AppText>
         {subtitle ? (
           <AppText color="textSecondary" variant="body">
@@ -33,7 +26,7 @@ export function SectionHeader({
           </AppText>
         ) : null}
       </View>
-      {actionLabel ? (
+      {actionLabel && onPressAction ? (
         <AppButton
           compact
           fullWidth={false}
@@ -45,3 +38,16 @@ export function SectionHeader({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  copy: {
+    flex: 1,
+    gap: 2,
+  },
+  row: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+});
