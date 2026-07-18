@@ -4,15 +4,14 @@ import { StyleSheet, View } from 'react-native';
 import {
   AppCard,
   AppHeader,
+  AppTabScaffold,
   AppText,
-  BottomNavigation,
   HeroMetricCard,
   InlineMessage,
   InsightRow,
   MetricCard,
   ProgressBar,
   ProjectPill,
-  Screen,
   SectionHeader,
 } from '@/components';
 import { adminDashboardMock } from '@/mocks/dashboard';
@@ -35,10 +34,24 @@ export function AdminHomeScreen() {
   );
 
   return (
-    <Screen>
+    <AppTabScaffold
+      items={navigation}
+      selectedKey="home"
+      testID="admin-home-screen"
+    >
       <View style={styles.container}>
         <AppHeader
-          leftAction={<ProjectPill label={previewUsers.admin.project} />}
+          leftAction={
+            <ProjectPill
+              label={previewUsers.admin.project}
+              onPress={async () => {
+                await warningFeedback();
+                setNotice(
+                  'Project selection remains a preview-only control in this sprint.',
+                );
+              }}
+            />
+          }
           subtitle="Project overview"
           title="Administrator command"
         />
@@ -112,8 +125,7 @@ export function AdminHomeScreen() {
           ))}
         </View>
       </View>
-      <BottomNavigation items={navigation} selectedKey="home" />
-    </Screen>
+    </AppTabScaffold>
   );
 }
 

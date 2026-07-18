@@ -36,6 +36,7 @@ export * from '@/components/layout/AppDivider';
 export * from '@/components/layout/MobilePreviewFrame';
 export * from '@/components/layout/Screen';
 export * from '@/components/navigation/AppHeader';
+export * from '@/components/navigation/AppTabScaffold';
 export * from '@/components/navigation/BackButton';
 export * from '@/components/navigation/BottomNavigation';
 export * from '@/components/navigation/BottomNavigationItem';

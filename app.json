@@ -12,6 +12,8 @@
       "icon": "./assets/images/icon.png"
     },
     "android": {
+      "package": "com.bluemarketing.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

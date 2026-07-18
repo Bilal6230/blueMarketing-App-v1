@@ -28,7 +28,7 @@ function BootstrapGate({ children }: PropsWithChildren) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const status = useAuthStore((state) => state.status);
   const [ready, setReady] = useState(false);
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
@@ -51,13 +51,28 @@ function BootstrapGate({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    if (!fontError) {
+      return;
+    }
+
+    logger.warn(
+      'Custom fonts failed to load. Falling back to system rendering.',
+      {
+        family: 'Manrope',
+        reason: fontError instanceof Error ? fontError.name : 'unknown',
+        source: 'fontLoader',
+      },
+    );
+  }, [fontError]);
+
+  useEffect(() => {
     let mounted = true;
 
     const bootstrap = async () => {
       try {
         await hydrateSession();
       } finally {
-        if (!mounted || !fontsLoaded) {
+        if (!mounted || (!fontsLoaded && !fontError)) {
           return;
         }
 
@@ -71,7 +86,7 @@ function BootstrapGate({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
     };
-  }, [fontsLoaded, hydrateSession]);
+  }, [fontError, fontsLoaded, hydrateSession]);
 
   if (!ready) {
     return null;

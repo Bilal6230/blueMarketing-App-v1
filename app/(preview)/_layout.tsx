@@ -1,7 +1,9 @@
 import { Redirect, Stack } from 'expo-router';
 
+import { isUiPreviewEnabled } from '@/config/isUiPreviewEnabled';
+
 export default function PreviewLayout() {
-  if (!__DEV__) {
+  if (!isUiPreviewEnabled()) {
     return <Redirect href="/" />;
   }
 

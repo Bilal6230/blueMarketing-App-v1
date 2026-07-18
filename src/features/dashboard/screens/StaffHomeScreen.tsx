@@ -4,17 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 
 import {
   ActionTile,
-  AppButton,
   AppCard,
   AppHeader,
+  AppTabScaffold,
   AppText,
-  BottomNavigation,
   HeroMetricCard,
+  IconButton,
   InlineMessage,
   ListItem,
   NotificationDot,
   ProjectPill,
-  Screen,
   SectionHeader,
 } from '@/components';
 import { staffPreviewNavigation } from '@/features/preview/navigationModel';
@@ -40,18 +39,38 @@ export function StaffHomeScreen() {
   );
 
   return (
-    <Screen scrollable={false}>
+    <AppTabScaffold
+      items={navigation}
+      selectedKey="home"
+      testID="staff-home-screen"
+    >
       <View style={styles.container}>
         <View style={styles.headerSection}>
           <AppHeader
-            leftAction={<ProjectPill label={previewUsers.staff.project} />}
+            leftAction={
+              <ProjectPill
+                label={previewUsers.staff.project}
+                onPress={async () => {
+                  await warningFeedback();
+                  setNotice(
+                    'Project switching is a preview-only entry point in this sprint.',
+                  );
+                }}
+              />
+            }
             rightAction={
               <View style={styles.notificationWrap}>
-                <Ionicons
+                <IconButton
+                  accessibilityHint="Shows a preview-only notification message"
                   accessibilityLabel="Notifications"
-                  color={theme.colors.textMuted}
-                  name="notifications-outline"
-                  size={22}
+                  icon="notifications-outline"
+                  onPress={async () => {
+                    await warningFeedback();
+                    setNotice(
+                      'Notifications are not connected yet. This is a preview notice only.',
+                    );
+                  }}
+                  testID="staff-notifications-button"
                 />
                 <View style={styles.notificationDot}>
                   <NotificationDot />
@@ -94,14 +113,6 @@ export function StaffHomeScreen() {
           ))}
         </View>
 
-        <AppButton
-          onPress={async () => {
-            await successFeedback();
-            setNotice('Attendance preview confirms the interaction only.');
-          }}
-          title="Check in now"
-        />
-
         <View style={styles.section}>
           <SectionHeader title="Today's priorities" />
           {staffDashboardMock.priorities.map((item) => (
@@ -110,31 +121,49 @@ export function StaffHomeScreen() {
               icon="checkmark-done-outline"
               key={item}
               label={item}
+              onPress={async () => {
+                await successFeedback();
+                setNotice(
+                  `${item} is a preview-only task card in this sprint.`,
+                );
+              }}
             />
           ))}
         </View>
 
         <View style={styles.section}>
-          <SectionHeader actionLabel="Add lead" title="Recent lead activity" />
+          <SectionHeader
+            actionLabel="Add lead"
+            onPressAction={async () => {
+              await warningFeedback();
+              setNotice(
+                'Add lead is not connected yet. No CRM mutation is performed.',
+              );
+            }}
+            title="Recent lead activity"
+          />
           {staffDashboardMock.recentActivity.map((item) => (
             <ListItem
               icon="ellipse-outline"
               key={item}
+              onPress={async () => {
+                await successFeedback();
+                setNotice(
+                  'Lead activity rows are preview summaries in this sprint.',
+                );
+              }}
               subtitle={item}
               title="Lead activity"
             />
           ))}
         </View>
       </View>
-
-      <BottomNavigation items={navigation} selectedKey="home" />
-    </Screen>
+    </AppTabScaffold>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     gap: 24,
   },
   headerSection: {
