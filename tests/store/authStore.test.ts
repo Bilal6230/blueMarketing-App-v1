@@ -22,6 +22,7 @@ describe('authStore', () => {
 
   it('awaits successful token and project persistence before authenticating', async () => {
     jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
     jest
       .spyOn(secureStorage, 'setSelectedProjectId')
       .mockResolvedValue({ ok: true });
@@ -30,7 +31,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: ['reports.view'],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 7,
       user: { id: 1, name: 'Bilal' },
     });
@@ -57,7 +58,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: ['reports.view'],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 7,
       user: { id: 1, name: 'Bilal' },
     });
@@ -75,6 +76,7 @@ describe('authStore', () => {
 
   it('rolls back the token when selected project persistence fails', async () => {
     jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
     jest.spyOn(secureStorage, 'setSelectedProjectId').mockResolvedValue({
       ok: false,
       operation: 'setSelectedProjectId',
@@ -87,7 +89,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: ['reports.view'],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 7,
       user: { id: 1, name: 'Bilal' },
     });
@@ -105,6 +107,7 @@ describe('authStore', () => {
 
   it('reports failed token rollback when selected project persistence fails', async () => {
     jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
     jest.spyOn(secureStorage, 'setSelectedProjectId').mockResolvedValue({
       ok: false,
       operation: 'setSelectedProjectId',
@@ -118,7 +121,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: ['reports.view'],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 7,
       user: { id: 1, name: 'Bilal' },
     });
@@ -134,6 +137,7 @@ describe('authStore', () => {
 
   it('rolls back the token after null project persistence failure', async () => {
     jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
     jest.spyOn(secureStorage, 'deleteSelectedProjectId').mockResolvedValue({
       ok: false,
       operation: 'deleteSelectedProjectId',
@@ -146,7 +150,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: [],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: null,
       user: { id: 1, name: 'Bilal' },
     });
@@ -172,7 +176,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: ['reports.view'],
       projects: [{ id: 1, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 1,
       status: 'authenticated',
       user: { id: 1, name: 'Bilal' },
@@ -203,7 +207,7 @@ describe('authStore', () => {
       accessToken: 'token-1',
       permissions: ['reports.view'],
       projects: [{ id: 1, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 1,
       status: 'authenticated',
       user: { id: 1, name: 'Bilal' },
@@ -247,16 +251,25 @@ describe('authStore', () => {
     });
   });
 
-  it('hydrates stored values without marking the session authenticated', async () => {
+  it('hydrates a stored session as authenticated', async () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { id: 2, name: 'Bilal', email: 'staff@bluemarketing.com' },
+    });
     jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
 
     await useAuthStore.getState().hydrateSession();
 
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'token-2',
+      roles: ['staff'],
       selectedProjectId: 9,
-      status: 'unauthenticated',
+      status: 'authenticated',
     });
   });
 
@@ -279,5 +292,42 @@ describe('authStore', () => {
 
     expect(setProjectSpy).not.toHaveBeenCalled();
     expect(useAuthStore.getState().selectedProjectId).toBe(1);
+  });
+
+  it('rolls back persisted values when auth session persistence fails', async () => {
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
+      .mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({
+      ok: false,
+      operation: 'setAuthSession',
+    });
+    jest.spyOn(secureStorage, 'deleteAccessToken').mockResolvedValue({
+      ok: true,
+    });
+    jest.spyOn(secureStorage, 'deleteSelectedProjectId').mockResolvedValue({
+      ok: true,
+    });
+    jest.spyOn(secureStorage, 'deleteAuthSession').mockResolvedValue({
+      ok: true,
+    });
+
+    const result = await useAuthStore.getState().setSession({
+      accessToken: 'token-1',
+      permissions: ['reports.view'],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { id: 1, name: 'Bilal' },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'sessionPersistenceFailed',
+      rollbackRequired: true,
+      rollbackSucceeded: true,
+      selectedProjectId: 7,
+    });
   });
 });

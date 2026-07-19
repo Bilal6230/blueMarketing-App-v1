@@ -1,5 +1,5 @@
 import { LeadDetailScreen } from '@/features/crm/screens/LeadDetailScreen';
 
-export default function PreviewLeadDetailRoute() {
+export default function LeadDetailRoute() {
   return <LeadDetailScreen />;
 }

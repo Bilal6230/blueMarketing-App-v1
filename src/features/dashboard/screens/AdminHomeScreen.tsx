@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -7,71 +7,42 @@ import {
   AppTabScaffold,
   AppText,
   HeroMetricCard,
-  InlineMessage,
   InsightRow,
   MetricCard,
   ProgressBar,
   ProjectPill,
   SectionHeader,
 } from '@/components';
-import { adminDashboardMock } from '@/mocks/dashboard';
-import { previewUsers } from '@/mocks/user';
-import { adminPreviewNavigation } from '@/features/preview/navigationModel';
-import { warningFeedback } from '@/services/haptics';
+import { dashboardFixtures } from '@/features/dashboard/data/dashboardFixtures';
+import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 
 export function AdminHomeScreen() {
-  const [notice, setNotice] = useState<string | null>(null);
-  const navigation = adminPreviewNavigation.map((item) =>
-    item.href
-      ? item
-      : {
-          ...item,
-          onPress: async () => {
-            await warningFeedback();
-            setNotice(`${item.label} arrives in a later sprint.`);
-          },
-        },
-  );
+  const router = useRouter();
 
   return (
     <AppTabScaffold
-      items={navigation}
+      items={getBottomNavigationItems('administrator')}
       selectedKey="home"
       testID="admin-home-screen"
     >
       <View style={styles.container}>
         <AppHeader
           leftAction={
-            <ProjectPill
-              label={previewUsers.admin.project}
-              onPress={async () => {
-                await warningFeedback();
-                setNotice(
-                  'Project selection remains a preview-only control in this sprint.',
-                );
-              }}
-            />
+            <ProjectPill label={dashboardFixtures.shared.projectName} />
           }
-          subtitle="Project overview"
-          title="Administrator command"
+          subtitle={dashboardFixtures.shared.dateLabel}
+          title="Administrator dashboard"
         />
-        {notice ? (
-          <InlineMessage
-            message={notice}
-            title="Preview-only navigation"
-            tone="warning"
-          />
-        ) : null}
 
         <HeroMetricCard
-          caption="Recovery hero metric"
+          caption="Collections"
           progress={0.785}
           subtitle="of PKR 61.4M"
           title="PKR 48.2M received"
         />
 
         <View style={styles.metricGrid}>
-          {adminDashboardMock.metrics.map((metric) => (
+          {dashboardFixtures.administrator.metrics.map((metric) => (
             <MetricCard
               icon={metric.icon as never}
               key={metric.label}
@@ -87,7 +58,7 @@ export function AdminHomeScreen() {
             subtitle="Approvals and alerts requiring attention"
             title="Requires attention"
           />
-          {adminDashboardMock.alerts.map((item) => (
+          {dashboardFixtures.administrator.alerts.map((item) => (
             <InsightRow
               detail="Review with your operations team."
               icon="alert-circle-outline"
@@ -100,11 +71,11 @@ export function AdminHomeScreen() {
 
         <AppCard surface="elevated">
           <SectionHeader
-            subtitle="Compact progress substitute for charts"
+            subtitle="Operational targets for the current week"
             title="Sales and collection metrics"
           />
           <View style={styles.bars}>
-            {adminDashboardMock.overviewBars.map((bar) => (
+            {dashboardFixtures.administrator.overviewBars.map((bar) => (
               <View key={bar.label} style={styles.barRow}>
                 <AppText variant="labelStrong">{bar.label}</AppText>
                 <ProgressBar progress={bar.progress} />
@@ -114,8 +85,12 @@ export function AdminHomeScreen() {
         </AppCard>
 
         <View style={styles.section}>
-          <SectionHeader title="Recent activity" />
-          {adminDashboardMock.recentActivity.map((item) => (
+          <SectionHeader
+            actionLabel="Open CRM"
+            onPressAction={() => router.push('/(app)/crm')}
+            title="Recent activity"
+          />
+          {dashboardFixtures.administrator.recentActivity.map((item) => (
             <AppCard key={item} surface="muted">
               <AppText variant="labelStrong">{item}</AppText>
               <AppText color="textSecondary" variant="caption">

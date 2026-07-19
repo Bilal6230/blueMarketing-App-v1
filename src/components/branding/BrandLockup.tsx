@@ -8,7 +8,7 @@ type BrandLockupProps = {
 };
 
 export function BrandLockup({
-  subtitle = 'Blue Intelligence',
+  subtitle = 'Operations workspace',
 }: BrandLockupProps) {
   return (
     <View style={styles.container}>

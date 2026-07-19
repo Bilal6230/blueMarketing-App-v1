@@ -1,4 +1,5 @@
 import { Text } from 'react-native';
+import { fireEvent, waitFor } from '@testing-library/react-native';
 
 import {
   AppTabScaffold,
@@ -6,9 +7,22 @@ import {
   FilterChip,
   IconButton,
 } from '@/components';
+import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { renderWithTheme } from '../utils/renderWithTheme';
 
+const mockPush = jest.fn();
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+}));
+
 describe('navigation and selection controls', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('renders icon button accessibility state', async () => {
     const { getByTestId } = await renderWithTheme(
       <IconButton
@@ -38,43 +52,27 @@ describe('navigation and selection controls', () => {
     });
   });
 
-  it('renders the bottom navigation with the selected tab', async () => {
-    const { getByText } = await renderWithTheme(
+  it('changes bottom navigation using real app routes', async () => {
+    const { getByLabelText, queryByText } = await renderWithTheme(
       <BottomNavigation
-        items={[
-          {
-            href: '/(preview)/staff-home',
-            icon: 'home-outline',
-            key: 'home',
-            label: 'Home',
-          },
-          {
-            href: '/(preview)/crm',
-            icon: 'people-outline',
-            key: 'crm',
-            label: 'CRM',
-          },
-        ]}
-        selectedKey="crm"
+        items={getBottomNavigationItems('staff')}
+        selectedKey="home"
       />,
     );
 
-    expect(getByText('CRM').parent?.props.accessibilityState).toEqual({
-      selected: true,
+    fireEvent.press(getByLabelText('CRM'));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/(app)/crm');
     });
+    expect(queryByText('Preview')).toBeNull();
+    expect(queryByText('Design System')).toBeNull();
   });
 
   it('renders the fixed tab scaffold content with navigation', async () => {
     const { getByText } = await renderWithTheme(
       <AppTabScaffold
-        items={[
-          {
-            href: '/(preview)/staff-home',
-            icon: 'home-outline',
-            key: 'home',
-            label: 'Home',
-          },
-        ]}
+        items={getBottomNavigationItems('staff')}
         selectedKey="home"
       >
         <Text>Scrollable content</Text>
@@ -82,6 +80,6 @@ describe('navigation and selection controls', () => {
     );
 
     expect(getByText('Scrollable content')).toBeTruthy();
-    expect(getByText('Home')).toBeTruthy();
+    expect(getByText('Profile')).toBeTruthy();
   });
 });

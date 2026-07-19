@@ -4,7 +4,7 @@ export function OfflineBanner() {
   return (
     <InlineMessage
       message="Reconnect to refresh operational data."
-      title="You are viewing offline prototype content"
+      title="You are offline"
       tone="warning"
     />
   );

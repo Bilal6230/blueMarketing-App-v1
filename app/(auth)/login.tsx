@@ -1,5 +1,5 @@
 import { PremiumLoginScreen } from '@/features/auth';
 
 export default function LoginRoute() {
-  return <PremiumLoginScreen mode="foundation" />;
+  return <PremiumLoginScreen />;
 }

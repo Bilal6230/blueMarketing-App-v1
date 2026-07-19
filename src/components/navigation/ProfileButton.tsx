@@ -9,7 +9,7 @@ type ProfileButtonProps = {
 export function ProfileButton({ initials, onPress }: ProfileButtonProps) {
   return (
     <PressableScale
-      accessibilityLabel="Open profile preview"
+      accessibilityLabel="Open profile"
       accessibilityRole="button"
       onPress={onPress}
       style={{ borderRadius: 999 }}

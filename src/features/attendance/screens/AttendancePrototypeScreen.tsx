@@ -9,16 +9,11 @@ import {
   HeroMetricCard,
   InlineMessage,
   ProgressBar,
-  SegmentedControl,
   TimelineItem,
 } from '@/components';
-import { staffPreviewNavigation } from '@/features/preview/navigationModel';
-import { attendanceMock } from '@/mocks/attendance';
-import {
-  lightImpactFeedback,
-  selectionFeedback,
-  successFeedback,
-} from '@/services/haptics';
+import { attendanceFixtures } from '@/features/attendance/data/attendanceFixtures';
+import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
+import { lightImpactFeedback, successFeedback } from '@/services/haptics';
 
 type AttendanceState = 'not_checked_in' | 'checked_in' | 'checked_out';
 
@@ -29,44 +24,29 @@ export function AttendancePrototypeScreen() {
   const hero =
     state === 'checked_in'
       ? {
-          subtitle: attendanceMock.checkedIn.duration,
-          title: attendanceMock.checkedIn.headline,
+          subtitle: 'Working for 02h 14m',
+          title: 'Checked in at 8:56 AM',
         }
       : state === 'checked_out'
         ? {
-            subtitle: 'Shift completed for Thursday, July 16, 2026',
+            subtitle: 'Shift completed for Sunday, July 19, 2026',
             title: 'Checked out at 6:05 PM',
           }
         : {
-            subtitle: `Blue Residency \u00B7 Thursday, July 16, 2026`,
+            subtitle: attendanceFixtures.projectLabel,
             title: 'You have not checked in',
           };
 
   return (
     <AppTabScaffold
-      items={staffPreviewNavigation}
+      items={getBottomNavigationItems('staff')}
       selectedKey="attendance"
-      testID="attendance-prototype-screen"
+      testID="attendance-screen"
     >
-      <SegmentedControl
-        accessibilityLabel="Attendance state switcher"
-        onChange={async (value) => {
-          await selectionFeedback();
-          setNotice(null);
-          setState(value);
-        }}
-        options={[
-          { label: 'Not checked in', value: 'not_checked_in' },
-          { label: 'Checked in', value: 'checked_in' },
-          { label: 'Checked out', value: 'checked_out' },
-        ]}
-        value={state}
-      />
-
       {notice ? (
         <InlineMessage
           message={notice}
-          title="Preview notice"
+          title="Attendance update"
           tone="information"
         />
       ) : null}
@@ -74,12 +54,12 @@ export function AttendancePrototypeScreen() {
       <AppCard surface="muted">
         <AppText variant="labelStrong">Project and shift context</AppText>
         <AppText color="textSecondary" variant="caption">
-          {`Blue Residency \u00B7 Thursday, July 16, 2026`}
+          {attendanceFixtures.projectLabel}
         </AppText>
       </AppCard>
 
       <HeroMetricCard
-        caption="Attendance hero"
+        caption="Attendance"
         progress={
           state === 'checked_in' ? 0.45 : state === 'checked_out' ? 1 : 0
         }
@@ -94,7 +74,7 @@ export function AttendancePrototypeScreen() {
             await successFeedback();
             setState('checked_out');
             setNotice(
-              'The shift has been completed. This prototype will not check you in again from the checked-out state.',
+              'Your local attendance state has been updated to checked out.',
             );
             return;
           }
@@ -102,9 +82,10 @@ export function AttendancePrototypeScreen() {
           await lightImpactFeedback();
           setState('checked_in');
           setNotice(
-            'Attendance preview updated locally only. No backend attendance entry was created.',
+            'Your local attendance state has been updated to checked in.',
           );
         }}
+        testID="attendance-primary-action"
         title={
           state === 'checked_in'
             ? 'Check out'
@@ -112,14 +93,13 @@ export function AttendancePrototypeScreen() {
               ? 'Shift completed'
               : 'Check in now'
         }
-        testID="attendance-primary-action"
         variant={state === 'checked_out' ? 'secondary' : 'primary'}
       />
 
       <AppCard>
         <AppText variant="headingSmall">Weekly overview</AppText>
         <View style={styles.weekly}>
-          {attendanceMock.weekly.map((item) => (
+          {attendanceFixtures.weekly.map((item) => (
             <View key={item.label} style={styles.weekItem}>
               <AppText variant="labelStrong">{item.label}</AppText>
               <ProgressBar progress={item.progress} />
@@ -130,7 +110,7 @@ export function AttendancePrototypeScreen() {
 
       <AppCard>
         <AppText variant="headingSmall">Recent attendance history</AppText>
-        {attendanceMock.history.map((item, index) => (
+        {attendanceFixtures.history.map((item, index) => (
           <TimelineItem
             body={item}
             key={item}

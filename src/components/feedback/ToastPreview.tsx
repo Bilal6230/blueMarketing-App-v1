@@ -6,7 +6,7 @@ export function ToastPreview() {
     <AppCard surface="elevated">
       <AppText variant="labelStrong">Lead follow-up saved</AppText>
       <AppText color="textSecondary" variant="caption">
-        Prototype toast preview only. No global toast framework is active yet.
+        Your update has been stored in the current local session.
       </AppText>
     </AppCard>
   );

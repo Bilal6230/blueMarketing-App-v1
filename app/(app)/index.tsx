@@ -1,12 +1,15 @@
-import { EmptyState, Screen } from '@/components';
+import { AdminHomeScreen } from '@/features/dashboard/screens/AdminHomeScreen';
+import { StaffHomeScreen } from '@/features/dashboard/screens/StaffHomeScreen';
+import { resolvePrimaryRole } from '@/features/auth/utils/authSession';
+import { useAuthStore } from '@/store/authStore';
 
 export default function AppIndexRoute() {
-  return (
-    <Screen>
-      <EmptyState
-        subtitle="Authenticated business modules remain intentionally unimplemented in this sprint."
-        title="Application shell ready"
-      />
-    </Screen>
-  );
+  const roles = useAuthStore((state) => state.roles);
+  const role = resolvePrimaryRole(roles);
+
+  if (role === 'administrator') {
+    return <AdminHomeScreen />;
+  }
+
+  return <StaffHomeScreen />;
 }

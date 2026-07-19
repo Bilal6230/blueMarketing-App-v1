@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -15,11 +16,33 @@ import {
   StatusBadge,
   TimelineItem,
 } from '@/components';
-import { leadDetailMock } from '@/mocks/crm';
+import { leadFixtures } from '@/features/crm/data/leadFixtures';
 import { lightImpactFeedback } from '@/services/haptics';
 
 export function LeadDetailScreen() {
+  const params = useLocalSearchParams<{ leadId?: string }>();
   const [notice, setNotice] = useState<string | null>(null);
+  const [timelineNotice, setTimelineNotice] = useState<string | null>(null);
+  const lead = useMemo(
+    () =>
+      leadFixtures.find((item) => item.id === params.leadId) ??
+      leadFixtures[0] ??
+      null,
+    [params.leadId],
+  );
+
+  if (!lead) {
+    return (
+      <Screen testID="lead-detail-screen">
+        <AppHeader leftAction={<BackButton />} title="Lead detail" />
+        <InlineMessage
+          message="The selected lead could not be loaded."
+          title="Lead detail"
+          tone="warning"
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen testID="lead-detail-screen">
@@ -27,27 +50,22 @@ export function LeadDetailScreen() {
       {notice ? (
         <InlineMessage
           message={notice}
-          title="Preview notice"
+          title="Lead detail"
           tone="information"
         />
       ) : null}
 
       <AppCard surface="elevated">
         <View style={styles.hero}>
-          <Avatar initials={leadDetailMock.initials} size={64} />
+          <Avatar initials={lead.initials} size={64} />
           <AppText align="center" variant="headingLarge">
-            {leadDetailMock.name}
+            {lead.name}
           </AppText>
-          <StatusBadge label={leadDetailMock.status} variant="active" />
+          <StatusBadge label={lead.status} variant={lead.statusTone} />
           <View style={styles.actionRow}>
             <AppButton
+              disabled
               fullWidth={false}
-              onPress={async () => {
-                await lightImpactFeedback();
-                setNotice(
-                  'Calling is not connected in this prototype. No phone action was started.',
-                );
-              }}
               title="Call lead"
               variant="primary"
             />
@@ -55,56 +73,59 @@ export function LeadDetailScreen() {
               fullWidth={false}
               onPress={async () => {
                 await lightImpactFeedback();
-                setNotice(
-                  'Add follow-up is a preview-only action in this sprint.',
+                setTimelineNotice(
+                  'A local follow-up note was added to today’s review queue.',
                 );
               }}
-              title="Add follow-up"
+              title="Log follow-up"
               variant="secondary"
             />
           </View>
+          <AppText align="center" color="textSecondary" variant="caption">
+            Calling will be enabled after telephony permissions are configured.
+          </AppText>
         </View>
       </AppCard>
 
       <AppCard>
         <SectionHeader title="Identity" />
-        <AppText variant="labelStrong">{leadDetailMock.name}</AppText>
-        <ProjectPill label={leadDetailMock.project} />
+        <AppText variant="labelStrong">{lead.name}</AppText>
+        <ProjectPill label={lead.project} />
       </AppCard>
 
       <AppCard>
         <SectionHeader title="Contact" />
-        <AppText variant="bodyStrong">{leadDetailMock.maskedPhone}</AppText>
+        <AppText variant="bodyStrong">{lead.maskedPhone}</AppText>
         <AppText color="textSecondary" variant="body">
-          {leadDetailMock.email}
+          {lead.email}
         </AppText>
       </AppCard>
 
       <AppCard>
         <SectionHeader title="Follow-up" />
-        <AppText variant="bodyStrong">{leadDetailMock.followUp}</AppText>
-        <AppText color="textSecondary" variant="caption">
-          Preview scheduling only
-        </AppText>
+        <AppText variant="bodyStrong">{lead.followUp}</AppText>
+        {timelineNotice ? (
+          <AppText color="textSecondary" variant="caption">
+            {timelineNotice}
+          </AppText>
+        ) : null}
       </AppCard>
 
       <AppCard>
         <SectionHeader title="Assignment" />
-        <AppText variant="bodyStrong">{leadDetailMock.assignedTo}</AppText>
+        <AppText variant="bodyStrong">{lead.assignedTo}</AppText>
       </AppCard>
 
       <AppCard>
         <SectionHeader
-          actionLabel="Edit"
+          actionLabel="Update"
           onPressAction={async () => {
             await lightImpactFeedback();
-            setNotice(
-              'Editing this lead is not connected yet. The timeline is read-only in this preview.',
-            );
+            setNotice('Lead updates remain read-only in this frontend build.');
           }}
           title="Activity timeline"
         />
-        {leadDetailMock.timeline.map((item) => (
+        {lead.timeline.map((item) => (
           <TimelineItem
             body={item.body}
             key={`${item.title}-${item.time}`}

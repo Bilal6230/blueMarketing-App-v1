@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'expo-router';
+import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
+import { z } from 'zod';
 
 import {
   AppButton,
   AppCard,
-  AppDivider,
-  AppSwitch,
   AppText,
   BrandLockup,
   InlineMessage,
@@ -13,110 +14,129 @@ import {
   Screen,
 } from '@/components';
 import { AppInput } from '@/components/controls/AppInput';
-import { FadeInView } from '@/motion';
-import { lightImpactFeedback } from '@/services/haptics';
+import { signInWithMockCredentials } from '@/features/auth/services/mockAuthService';
+import { useAuthStore } from '@/store/authStore';
 import { testIds } from '@/utils/testIds';
 
-type PremiumLoginMode = 'foundation' | 'preview';
+const loginSchema = z.object({
+  email: z.email('Enter a valid email address.'),
+  password: z
+    .string()
+    .min(1, 'Password is required.')
+    .min(6, 'Password must be at least 6 characters.'),
+});
 
-type PremiumLoginScreenProps = {
-  mode?: PremiumLoginMode;
-};
+type LoginFormValues = z.infer<typeof loginSchema>;
 
-export function PremiumLoginScreen({
-  mode = 'foundation',
-}: PremiumLoginScreenProps) {
-  const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [remember, setRemember] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isPreviewMode = mode === 'preview';
+export function PremiumLoginScreen() {
+  const router = useRouter();
+  const setSession = useAuthStore((state) => state.setSession);
+  const {
+    control,
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    setError,
+  } = useForm<LoginFormValues>({
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+    resolver: zodResolver(loginSchema),
+  });
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      const session = await signInWithMockCredentials(values);
+      const result = await setSession(session);
+
+      if (!result.ok) {
+        setError('root', {
+          message: 'Unable to start your session right now.',
+        });
+        return;
       }
-    };
-  }, []);
 
-  const handlePreviewPress = async () => {
-    await lightImpactFeedback();
-    setNotice(null);
-    setLoading(true);
-    timeoutRef.current = setTimeout(() => {
-      setLoading(false);
-      setNotice(
-        'No request was sent. This preview demonstrates the loading state only.',
-      );
-    }, 900);
-  };
+      router.replace('/(app)');
+    } catch (error) {
+      setError('root', {
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Incorrect email or password',
+      });
+    }
+  });
 
   return (
     <Screen contentContainerStyle={styles.screen} testID={testIds.loginScreen}>
       <View style={styles.spacer} />
-      <FadeInView>
-        <AppCard padding="lg" surface="elevated">
-          <BrandLockup subtitle="Blue Intelligence" />
-          <View style={styles.copy}>
-            <AppText variant="displayMedium">
-              Mobile operations, simplified.
-            </AppText>
-            <AppText color="textSecondary" variant="bodyLarge">
-              Secure access for authorised team members.
-            </AppText>
-          </View>
-          <AppInput
-            autoCapitalize="none"
-            keyboardType="email-address"
-            label="Email"
-            leadingIcon="mail-outline"
-            placeholder="bilal@bluemarketing.com"
-          />
-          <PasswordInput
-            label="Password"
-            leadingIcon="lock-closed-outline"
-            placeholder="Enter password"
-          />
-          <AppSwitch
-            hint="Visual prototype only. This setting is not yet functional."
-            label="Remember this device"
-            onValueChange={setRemember}
-            value={remember}
-          />
-          <AppButton
-            loading={loading}
-            disabled={!isPreviewMode}
-            onPress={
-              isPreviewMode ? () => void handlePreviewPress() : undefined
-            }
-            testID="login-sign-in-button"
-            title="Sign in"
-            variant="primary"
-          />
-          {isPreviewMode ? (
-            <InlineMessage
-              message={
-                notice ??
-                'Preview mode may show loading, but it never stores credentials or sends an authentication request.'
-              }
-              title="Preview interaction only"
-              tone="information"
-            />
-          ) : (
-            <InlineMessage
-              message="Authentication integration is not connected in this foundation route yet."
-              title="Foundation layout only"
-              tone="warning"
+      <AppCard padding="lg" surface="elevated">
+        <BrandLockup subtitle="Operations workspace" />
+        <View style={styles.copy}>
+          <AppText variant="displayMedium">Welcome back</AppText>
+          <AppText color="textSecondary" variant="bodyLarge">
+            Sign in to manage your daily operations and team activity.
+          </AppText>
+        </View>
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { onBlur, onChange, value } }) => (
+            <AppInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              errorText={errors.email?.message}
+              keyboardType="email-address"
+              label="Email"
+              leadingIcon="mail-outline"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              onSubmitEditing={onSubmit}
+              placeholder="name@bluemarketing.com"
+              returnKeyType="next"
+              testID={testIds.emailInput}
+              textContentType="emailAddress"
+              value={value}
             />
           )}
-          <AppDivider />
-          <AppText color="textMuted" variant="caption">
-            Secure device-level storage and session validation will be connected
-            in a later sprint.
-          </AppText>
-        </AppCard>
-      </FadeInView>
+        />
+        <Controller
+          control={control}
+          name="password"
+          render={({ field: { onBlur, onChange, value } }) => (
+            <PasswordInput
+              autoCorrect={false}
+              errorText={errors.password?.message}
+              label="Password"
+              leadingIcon="lock-closed-outline"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              onSubmitEditing={onSubmit}
+              placeholder="Enter password"
+              returnKeyType="done"
+              testID={testIds.passwordInput}
+              textContentType="password"
+              value={value}
+            />
+          )}
+        />
+        {errors.root?.message ? (
+          <View testID={testIds.authErrorMessage}>
+            <InlineMessage
+              message={errors.root.message}
+              title="Sign-in failed"
+              tone="danger"
+            />
+          </View>
+        ) : null}
+        <AppButton
+          loading={isSubmitting}
+          onPress={() => void onSubmit()}
+          testID={testIds.signInButton}
+          title="Sign in"
+          variant="primary"
+        />
+      </AppCard>
       <View style={styles.bottomSpace} />
     </Screen>
   );
@@ -124,7 +144,7 @@ export function PremiumLoginScreen({
 
 const styles = StyleSheet.create({
   bottomSpace: {
-    flex: 0.8,
+    flex: 0.7,
   },
   copy: {
     gap: 6,

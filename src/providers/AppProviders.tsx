@@ -96,8 +96,8 @@ function BootstrapGate({ children }: PropsWithChildren) {
 }
 
 function ProviderStatusBar() {
-  const { colorScheme } = useThemeContext();
-  return <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />;
+  useThemeContext();
+  return <StatusBar style="dark" />;
 }
 
 export function AppProviders({ children }: PropsWithChildren) {

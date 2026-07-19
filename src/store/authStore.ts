@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { AuthSession, AuthUser } from '@/types/auth';
+import type { AppRole, AuthSession, AuthUser } from '@/types/auth';
 import type { ProjectSummary } from '@/types/project';
 import type {
   AuthStatus,
@@ -9,11 +9,14 @@ import type {
 } from '@/store/types';
 import {
   clearSessionStorage,
-  deleteSelectedProjectId,
   deleteAccessToken,
+  deleteAuthSession,
+  deleteSelectedProjectId,
   getAccessToken,
+  getAuthSession,
   getSelectedProjectId,
   setAccessToken,
+  setAuthSession,
   setSelectedProjectId,
 } from '@/services/secureStorage';
 
@@ -21,7 +24,7 @@ type AuthState = {
   accessToken: string | null;
   permissions: string[];
   projects: ProjectSummary[];
-  roles: string[];
+  roles: AppRole[];
   selectedProjectId: number | null;
   status: AuthStatus;
   user: AuthUser | null;
@@ -35,7 +38,7 @@ const initialState = {
   accessToken: null,
   permissions: [],
   projects: [],
-  roles: [],
+  roles: [] as AppRole[],
   selectedProjectId: null,
   status: 'booting' as AuthStatus,
   user: null,
@@ -65,17 +68,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return cleanupResult;
   },
   hydrateSession: async () => {
-    const [accessToken, selectedProjectId] = await Promise.all([
+    const [accessToken, selectedProjectId, authSession] = await Promise.all([
       getAccessToken(),
       getSelectedProjectId(),
+      getAuthSession(),
     ]);
 
-    set((state) => ({
-      ...state,
-      accessToken,
-      selectedProjectId,
-      status: 'unauthenticated',
-    }));
+    if (!accessToken || !authSession) {
+      if (accessToken) {
+        await deleteAccessToken();
+      }
+      if (selectedProjectId !== null) {
+        await deleteSelectedProjectId();
+      }
+      await deleteAuthSession();
+      set({
+        ...initialState,
+        status: 'unauthenticated',
+      });
+      return;
+    }
+
+    set({
+      accessToken: authSession.accessToken,
+      permissions: authSession.permissions,
+      projects: authSession.projects,
+      roles: authSession.roles,
+      selectedProjectId:
+        resolveSelectedProjectId(authSession.projects, selectedProjectId) ??
+        authSession.selectedProjectId,
+      status: 'authenticated',
+      user: authSession.user,
+    });
   },
   setSelectedProject: async (projectId) => {
     const state = get();
@@ -88,6 +112,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (persistenceResult.ok) {
       set({ selectedProjectId: projectId });
+      await setAuthSession({
+        accessToken: state.accessToken ?? '',
+        permissions: state.permissions,
+        projects: state.projects,
+        roles: state.roles,
+        selectedProjectId: projectId,
+        user: state.user,
+      });
     }
   },
   setSession: async (session) => {
@@ -120,6 +152,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         reason: 'selectedProjectPersistenceFailed',
         rollbackRequired: true,
         rollbackSucceeded: tokenRollbackResult.ok,
+        selectedProjectId,
+      };
+    }
+
+    const sessionPersistenceResult = await setAuthSession({
+      ...session,
+      selectedProjectId,
+    });
+
+    if (!sessionPersistenceResult.ok) {
+      const [
+        tokenRollbackResult,
+        projectRollbackResult,
+        sessionRollbackResult,
+      ] = await Promise.all([
+        deleteAccessToken(),
+        deleteSelectedProjectId(),
+        deleteAuthSession(),
+      ]);
+
+      return {
+        ok: false,
+        reason: 'sessionPersistenceFailed',
+        rollbackRequired: true,
+        rollbackSucceeded:
+          tokenRollbackResult.ok &&
+          projectRollbackResult.ok &&
+          sessionRollbackResult.ok,
         selectedProjectId,
       };
     }

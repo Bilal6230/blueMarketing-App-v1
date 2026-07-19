@@ -1,10 +1,14 @@
 import * as SecureStore from 'expo-secure-store';
 
 import { SECURE_STORE_KEYS } from '@/config/constants';
+import { isAuthSession } from '@/features/auth/utils/authSession';
 import { logger } from '@/services/logger';
+import type { AuthSession } from '@/types/auth';
 
 export type SecureStorageOperation =
   | 'setAccessToken'
+  | 'setAuthSession'
+  | 'deleteAuthSession'
   | 'deleteAccessToken'
   | 'setSelectedProjectId'
   | 'deleteSelectedProjectId';
@@ -62,6 +66,29 @@ export async function getAccessToken() {
   }
 }
 
+export async function getAuthSession() {
+  try {
+    const storedValue = await SecureStore.getItemAsync(
+      SECURE_STORE_KEYS.authSession,
+    );
+
+    if (!storedValue) {
+      return null;
+    }
+
+    const parsedValue = JSON.parse(storedValue) as unknown;
+
+    return isAuthSession(parsedValue) ? parsedValue : null;
+  } catch (error) {
+    logger.warn('Failed to read auth session from secure storage.', {
+      key: SECURE_STORE_KEYS.authSession,
+      operation: 'getAuthSession',
+      error,
+    });
+    return null;
+  }
+}
+
 export async function setAccessToken(
   token: string,
 ): Promise<SecureStorageResult> {
@@ -81,6 +108,28 @@ export async function setAccessToken(
   }
 }
 
+export async function setAuthSession(
+  session: AuthSession,
+): Promise<SecureStorageResult> {
+  try {
+    await SecureStore.setItemAsync(
+      SECURE_STORE_KEYS.authSession,
+      JSON.stringify(session),
+    );
+    return { ok: true };
+  } catch (error) {
+    logger.warn('Failed to persist auth session to secure storage.', {
+      key: SECURE_STORE_KEYS.authSession,
+      operation: 'setAuthSession',
+      error,
+    });
+    return {
+      ok: false,
+      operation: 'setAuthSession',
+    };
+  }
+}
+
 export async function deleteAccessToken(): Promise<SecureStorageResult> {
   try {
     await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.accessToken);
@@ -94,6 +143,23 @@ export async function deleteAccessToken(): Promise<SecureStorageResult> {
     return {
       ok: false,
       operation: 'deleteAccessToken',
+    };
+  }
+}
+
+export async function deleteAuthSession(): Promise<SecureStorageResult> {
+  try {
+    await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.authSession);
+    return { ok: true };
+  } catch (error) {
+    logger.warn('Failed to delete auth session from secure storage.', {
+      key: SECURE_STORE_KEYS.authSession,
+      operation: 'deleteAuthSession',
+      error,
+    });
+    return {
+      ok: false,
+      operation: 'deleteAuthSession',
     };
   }
 }
@@ -169,11 +235,12 @@ export async function deleteSelectedProjectId(): Promise<SecureStorageResult> {
 }
 
 export async function clearSessionStorage(): Promise<ClearSessionStorageResult> {
-  const [tokenResult, projectResult] = await Promise.all([
+  const [tokenResult, projectResult, authSessionResult] = await Promise.all([
     deleteAccessToken(),
     deleteSelectedProjectId(),
+    deleteAuthSession(),
   ]);
-  const failedOperations = [tokenResult, projectResult]
+  const failedOperations = [tokenResult, projectResult, authSessionResult]
     .filter(
       (result): result is Extract<SecureStorageResult, { ok: false }> =>
         !result.ok,
