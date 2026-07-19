@@ -16,6 +16,16 @@
       "env": {
         "EXPO_PUBLIC_ENABLE_UI_PREVIEW": "false"
       }
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_ENABLE_UI_PREVIEW": "true"
+      }
     }
   }
 }
