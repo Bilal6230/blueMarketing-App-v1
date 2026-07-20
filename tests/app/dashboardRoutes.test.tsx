@@ -16,9 +16,10 @@ describe('dashboard routing', () => {
   });
 
   it('renders the staff dashboard for staff sessions', async () => {
-    const { getByText } = await renderWithTheme(<AppIndexRoute />);
+    const { getByTestId, getByText } = await renderWithTheme(<AppIndexRoute />);
 
-    expect(getByText('Good morning, Bilal')).toBeTruthy();
+    expect(getByTestId('staff-home-screen')).toBeTruthy();
+    expect(getByText("Today's priorities")).toBeTruthy();
   });
 
   it('renders the administrator dashboard for administrator sessions', async () => {
@@ -31,8 +32,9 @@ describe('dashboard routing', () => {
       },
     });
 
-    const { getByText } = await renderWithTheme(<AppIndexRoute />);
+    const { getByTestId, getByText } = await renderWithTheme(<AppIndexRoute />);
 
-    expect(getByText('Administrator dashboard')).toBeTruthy();
+    expect(getByTestId('admin-home-screen')).toBeTruthy();
+    expect(getByText('Sales and collection metrics')).toBeTruthy();
   });
 });

@@ -37,4 +37,13 @@ describe('ProfileScreen', () => {
       expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
     });
   });
+
+  it('renders a non-interactive avatar instead of a profile button', async () => {
+    const { getByLabelText, queryByLabelText } = await renderWithTheme(
+      <ProfileScreen />,
+    );
+
+    expect(getByLabelText('Avatar BI')).toBeTruthy();
+    expect(queryByLabelText('Open profile')).toBeNull();
+  });
 });

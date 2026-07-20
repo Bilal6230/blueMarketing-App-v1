@@ -19,12 +19,10 @@ import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
 import { useAuthStore } from '@/store/authStore';
 
-type DetailModalState =
-  | null
-  | {
-      body: string[];
-      title: string;
-    };
+type DetailModalState = null | {
+  body: string[];
+  title: string;
+};
 
 export function AdminHomeScreen() {
   const router = useRouter();
@@ -57,7 +55,9 @@ export function AdminHomeScreen() {
             <ProjectPill
               label={dashboard.projectName}
               onPress={
-                projects.length > 1 ? () => setProjectModalVisible(true) : undefined
+                projects.length > 1
+                  ? () => setProjectModalVisible(true)
+                  : undefined
               }
             />
           }
@@ -129,7 +129,9 @@ export function AdminHomeScreen() {
               key={bar.label}
               onPress={() =>
                 setDetailModal({
-                  body: [`Current progress: ${Math.round(bar.progress * 100)}%.`],
+                  body: [
+                    `Current progress: ${Math.round(bar.progress * 100)}%.`,
+                  ],
                   title: bar.label,
                 })
               }

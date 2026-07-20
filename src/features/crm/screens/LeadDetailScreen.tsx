@@ -1,12 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import {
-  Linking,
-  Modal,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   AppButton,
@@ -37,7 +31,7 @@ const statusOptions: { label: string; value: LeadStatus }[] = [
 export function LeadDetailScreen() {
   const params = useLocalSearchParams<{ leadId?: string }>();
   const addLeadFollowUp = useCrmStore((state) => state.addLeadFollowUp);
-  const getLeadById = useCrmStore((state) => state.getLeadById);
+  const leads = useCrmStore((state) => state.leads);
   const updateLeadRecord = useCrmStore((state) => state.updateLeadRecord);
   const [notice, setNotice] = useState<string | null>(null);
   const [followUpModalVisible, setFollowUpModalVisible] = useState(false);
@@ -53,8 +47,11 @@ export function LeadDetailScreen() {
     toIsoDateInputValue(new Date()),
   );
   const lead = useMemo(
-    () => getLeadById(params.leadId ?? '') ?? getLeadById('lead-1'),
-    [getLeadById, params.leadId],
+    () =>
+      leads.find((item) => item.id === (params.leadId ?? '')) ??
+      leads.find((item) => item.id === 'lead-1') ??
+      null,
+    [leads, params.leadId],
   );
 
   if (!lead) {

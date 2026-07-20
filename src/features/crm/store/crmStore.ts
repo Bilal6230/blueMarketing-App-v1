@@ -35,7 +35,9 @@ export const useCrmStore = create<CrmState>((set, get) => ({
     const updatedLead = addFollowUp(currentLead, input);
 
     set((state) => ({
-      leads: state.leads.map((lead) => (lead.id === leadId ? updatedLead : lead)),
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? updatedLead : lead,
+      ),
     }));
 
     return true;
@@ -53,7 +55,9 @@ export const useCrmStore = create<CrmState>((set, get) => ({
     const updatedLead = updateLead(currentLead, input);
 
     set((state) => ({
-      leads: state.leads.map((lead) => (lead.id === leadId ? updatedLead : lead)),
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? updatedLead : lead,
+      ),
     }));
 
     return true;

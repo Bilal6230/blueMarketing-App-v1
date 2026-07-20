@@ -53,7 +53,9 @@ export function StaffHomeScreen() {
               <ProjectPill
                 label={dashboard.projectName}
                 onPress={
-                  projects.length > 1 ? () => setProjectModalVisible(true) : undefined
+                  projects.length > 1
+                    ? () => setProjectModalVisible(true)
+                    : undefined
                 }
               />
             }

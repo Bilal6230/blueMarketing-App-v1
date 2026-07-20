@@ -1,66 +1,150 @@
+import { cleanup, fireEvent, waitFor } from '@testing-library/react-native';
+
 import { PremiumLoginScreen } from '@/features/auth';
+import { signIn } from '@/features/auth/services/authService';
+import { useAuthStore } from '@/store/authStore';
 import { renderWithTheme } from '../utils/renderWithTheme';
 
-const mockUseForm = jest.fn();
+const mockReplace = jest.fn();
+const mockSetSession = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
-    replace: jest.fn(),
+    replace: mockReplace,
   }),
 }));
 
-jest.mock('react-hook-form', () => ({
-  Controller: ({ render }: { render: (props: any) => React.ReactNode }) =>
-    render({
-      field: {
-        onBlur: jest.fn(),
-        onChange: jest.fn(),
-        value: '',
-      },
-    }),
-  useForm: () => mockUseForm(),
+jest.mock('@/features/auth/services/authService', () => ({
+  signIn: jest.fn(),
 }));
 
+jest.mock('@/components', () => {
+  const actual = jest.requireActual('@/components');
+  const { View: MockView } = require('react-native');
+
+  return {
+    ...actual,
+    Screen: ({
+      children,
+      testID,
+    }: {
+      children: React.ReactNode;
+      testID?: string;
+    }) => <MockView testID={testID}>{children}</MockView>,
+  };
+});
+
+const mockSignIn = jest.mocked(signIn);
+
 describe('PremiumLoginScreen', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
-    mockUseForm.mockReturnValue({
-      control: {},
-      formState: {
-        errors: {},
-        isSubmitting: false,
-      },
-      handleSubmit: () => jest.fn(),
-      setError: jest.fn(),
-    });
+    jest.clearAllMocks();
+    mockReplace.mockReset();
+    mockSetSession.mockReset();
+    mockSignIn.mockReset();
+    useAuthStore.setState({
+      accessToken: null,
+      clearSession: jest.fn(),
+      hydrateSession: jest.fn(),
+      permissions: [],
+      projects: [],
+      roles: [],
+      selectedProjectId: null,
+      setSelectedProject: jest.fn(),
+      setSession: mockSetSession,
+      status: 'unauthenticated',
+      user: null,
+    } as never);
   });
 
   it('renders the production login copy', async () => {
-    const { getByText } = await renderWithTheme(<PremiumLoginScreen />);
+    const screen = await renderWithTheme(<PremiumLoginScreen />);
 
-    expect(getByText('Welcome back')).toBeTruthy();
-    expect(getByText('Email')).toBeTruthy();
-    expect(getByText('Password')).toBeTruthy();
-    expect(getByText('Sign in')).toBeTruthy();
+    expect(screen.getByText('Welcome back')).toBeTruthy();
+    expect(screen.getByText('Email')).toBeTruthy();
+    expect(screen.getByText('Password')).toBeTruthy();
+    expect(screen.getByText('Sign in')).toBeTruthy();
   });
 
-  it('disables repeated submission while loading', async () => {
-    mockUseForm.mockReturnValue({
-      control: {},
-      formState: {
-        errors: {},
-        isSubmitting: true,
-      },
-      handleSubmit: () => jest.fn(),
-      setError: jest.fn(),
+  it('submits staff credentials and opens the app', async () => {
+    mockSignIn.mockResolvedValue({
+      accessToken: 'staff-session-token',
+      permissions: ['dashboard.view', 'crm.view', 'profile.view'],
+      projects: [{ id: 101, name: 'Blue Residency' }],
+      roles: ['staff'],
+      selectedProjectId: 101,
+      user: { email: 'staff@bluemarketing.com', id: 2, name: 'Bilal Iqbal' },
+    });
+    mockSetSession.mockResolvedValue({ ok: true, selectedProjectId: 101 });
+
+    const screen = await renderWithTheme(<PremiumLoginScreen />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText('name@bluemarketing.com'),
+      ).toBeTruthy();
     });
 
-    const { getByTestId } = await renderWithTheme(<PremiumLoginScreen />);
+    fireEvent.changeText(
+      screen.getByPlaceholderText('name@bluemarketing.com'),
+      'staff@bluemarketing.com',
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter password'),
+      'password123',
+    );
+    fireEvent.press(screen.getByTestId('login-sign-in-button'));
 
-    expect(
-      getByTestId('login-sign-in-button').props.accessibilityState,
-    ).toEqual({
-      busy: true,
-      disabled: true,
+    await waitFor(() => {
+      expect(mockSignIn).toHaveBeenCalledWith({
+        email: 'staff@bluemarketing.com',
+        password: 'password123',
+      });
+      expect(mockSetSession).toHaveBeenCalled();
+      expect(mockReplace).toHaveBeenCalledWith('/(app)');
+    });
+  });
+
+  it('submits administrator credentials and opens the app', async () => {
+    mockSignIn.mockResolvedValue({
+      accessToken: 'admin-session-token',
+      permissions: ['dashboard.view', 'crm.view', 'profile.view'],
+      projects: [{ id: 101, name: 'Blue Residency' }],
+      roles: ['administrator'],
+      selectedProjectId: 101,
+      user: { email: 'admin@bluemarketing.com', id: 1, name: 'Sana Ahmed' },
+    });
+    mockSetSession.mockResolvedValue({ ok: true, selectedProjectId: 101 });
+
+    const screen = await renderWithTheme(<PremiumLoginScreen />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText('name@bluemarketing.com'),
+      ).toBeTruthy();
+    });
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('name@bluemarketing.com'),
+      'admin@bluemarketing.com',
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter password'),
+      'password123',
+    );
+    fireEvent.press(screen.getByTestId('login-sign-in-button'));
+
+    await waitFor(() => {
+      expect(mockSignIn).toHaveBeenCalledWith({
+        email: 'admin@bluemarketing.com',
+        password: 'password123',
+      });
+      expect(mockSetSession).toHaveBeenCalled();
+      expect(mockReplace).toHaveBeenCalledWith('/(app)');
     });
   });
 });

@@ -10,11 +10,11 @@ import {
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { renderWithTheme } from '../utils/renderWithTheme';
 
-const mockPush = jest.fn();
+const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
-    push: mockPush,
+    replace: mockReplace,
   }),
 }));
 
@@ -63,7 +63,7 @@ describe('navigation and selection controls', () => {
     fireEvent.press(getByLabelText('CRM'));
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith('/(app)/crm');
+      expect(mockReplace).toHaveBeenCalledWith('/(app)/crm');
     });
     expect(queryByText('Preview')).toBeNull();
     expect(queryByText('Design System')).toBeNull();

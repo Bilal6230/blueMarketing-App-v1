@@ -110,10 +110,7 @@ export function getLead(id: string, leads: LeadRecord[]) {
   return leads.find((lead) => lead.id === id) ?? null;
 }
 
-export function addFollowUp(
-  lead: LeadRecord,
-  input: AddFollowUpInput,
-) {
+export function addFollowUp(lead: LeadRecord, input: AddFollowUpInput) {
   const followUpLabel = formatDateTimeLabel(input.scheduledFor);
 
   return {

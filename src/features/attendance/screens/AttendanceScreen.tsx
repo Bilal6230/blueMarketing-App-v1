@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   AppButton,
@@ -10,6 +10,7 @@ import {
   ProgressBar,
   TimelineItem,
 } from '@/components';
+import { createAttendanceSummary } from '@/features/attendance/services/attendanceService';
 import { useAttendanceStore } from '@/features/attendance/store/attendanceStore';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { useAuthStore } from '@/store/authStore';
@@ -22,8 +23,18 @@ export function AttendanceScreen() {
     'Blue Residency';
   const checkIn = useAttendanceStore((state) => state.checkIn);
   const checkOut = useAttendanceStore((state) => state.checkOut);
-  const summary = useAttendanceStore((state) => state.getSummary(projectName));
+  const checkedInAt = useAttendanceStore((state) => state.checkedInAt);
+  const checkedOutAt = useAttendanceStore((state) => state.checkedOutAt);
   const [notice, setNotice] = useState<string | null>(null);
+  const summary = useMemo(
+    () =>
+      createAttendanceSummary({
+        checkedInAt,
+        checkedOutAt,
+        projectName,
+      }),
+    [projectName, checkedInAt, checkedOutAt],
+  );
 
   return (
     <AppTabScaffold
@@ -101,7 +112,12 @@ export function AttendanceScreen() {
             title="Weekly attendance"
           />
         ))}
-        <ProgressBar progress={summary.weekly.reduce((sum, item) => sum + item.progress, 0) / summary.weekly.length} />
+        <ProgressBar
+          progress={
+            summary.weekly.reduce((sum, item) => sum + item.progress, 0) /
+            summary.weekly.length
+          }
+        />
       </AppCard>
 
       <AppCard>

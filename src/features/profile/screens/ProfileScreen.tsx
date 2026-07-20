@@ -7,7 +7,7 @@ import {
   AppCard,
   AppTabScaffold,
   AppText,
-  ProfileButton,
+  Avatar,
   ProjectPill,
   SectionHeader,
 } from '@/components';
@@ -48,7 +48,7 @@ export function ProfileScreen() {
             subtitle="Account"
             title={user?.name ?? 'Blue Marketing'}
           />
-          {initials ? <ProfileButton initials={initials} /> : null}
+          {initials ? <Avatar initials={initials} /> : null}
           <AppText color="textSecondary" variant="body">
             {user?.email ?? 'No email available'}
           </AppText>
@@ -72,7 +72,9 @@ export function ProfileScreen() {
             <ProjectPill
               label={selectedProject?.name ?? 'Blue Residency'}
               onPress={
-                projects.length > 1 ? () => setProjectModalVisible(true) : undefined
+                projects.length > 1
+                  ? () => setProjectModalVisible(true)
+                  : undefined
               }
             />
           </View>

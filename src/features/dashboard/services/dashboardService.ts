@@ -1,10 +1,6 @@
 import type { AppRole, AuthUser } from '@/types/auth';
 import type { ProjectSummary } from '@/types/project';
-import {
-  formatDateLabel,
-  getFirstName,
-  getGreeting,
-} from '@/utils/dateTime';
+import { formatDateLabel, getFirstName, getGreeting } from '@/utils/dateTime';
 
 const dashboardSeedData = {
   administrator: {
@@ -15,8 +11,7 @@ const dashboardSeedData = {
     ],
     metrics: [
       {
-        detail:
-          'Collections from the last seven days across active projects.',
+        detail: 'Collections from the last seven days across active projects.',
         icon: 'cash-outline',
         key: 'collections',
         label: 'Collections today',

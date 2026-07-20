@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
@@ -29,19 +29,12 @@ export function LeadListScreen() {
   }>();
   const getVisibleLeads = useCrmStore((state) => state.getVisibleLeads);
   const selectLead = useCrmStore((state) => state.selectLead);
-  const [filter, setFilter] = useState<(typeof filters)[number]>('All');
-  const [search, setSearch] = useState('');
+  const initialFilter =
+    params.status && filters.includes(params.status) ? params.status : 'All';
+  const initialSearch = typeof params.search === 'string' ? params.search : '';
+  const [filter, setFilter] = useState<(typeof filters)[number]>(initialFilter);
+  const [search, setSearch] = useState(initialSearch);
   const leads = getVisibleLeads({ search, status: filter });
-
-  useEffect(() => {
-    if (params.status && filters.includes(params.status)) {
-      setFilter(params.status);
-    }
-
-    if (typeof params.search === 'string') {
-      setSearch(params.search);
-    }
-  }, [params.search, params.status]);
 
   return (
     <AppTabScaffold
@@ -106,7 +99,7 @@ export function LeadListScreen() {
                 pathname: '/(app)/lead-detail',
               });
             }}
-            subtitle={`${lead.maskedPhone} · ${lead.followUp} · Assigned to ${lead.assignedTo}`}
+            subtitle={`${lead.maskedPhone} \u00B7 ${lead.followUp} \u00B7 Assigned to ${lead.assignedTo}`}
             title={lead.name}
           />
         ))
