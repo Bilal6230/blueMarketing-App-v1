@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
@@ -6,13 +7,13 @@ import {
   AppCard,
   AppTabScaffold,
   AppText,
-  BrandLockup,
-  InlineMessage,
+  ProfileButton,
+  ProjectPill,
   SectionHeader,
 } from '@/components';
 import { resolvePrimaryRole } from '@/features/auth/utils/authSession';
-import { dashboardFixtures } from '@/features/dashboard/data/dashboardFixtures';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
+import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
 import { useAuthStore } from '@/store/authStore';
 
 export function ProfileScreen() {
@@ -26,6 +27,14 @@ export function ProfileScreen() {
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId,
   );
+  const setSelectedProject = useAuthStore((state) => state.setSelectedProject);
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const initials = user?.name
+    ?.split(' ')
+    .map((item) => item[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <AppTabScaffold
@@ -33,13 +42,13 @@ export function ProfileScreen() {
       selectedKey="profile"
       testID="profile-screen"
     >
-      <BrandLockup subtitle="Account overview" />
       <AppCard surface="elevated">
         <View style={styles.identity}>
           <SectionHeader
-            subtitle="Temporary local session"
-            title={user?.name ?? 'Blue Marketing user'}
+            subtitle="Account"
+            title={user?.name ?? 'Blue Marketing'}
           />
+          {initials ? <ProfileButton initials={initials} /> : null}
           <AppText color="textSecondary" variant="body">
             {user?.email ?? 'No email available'}
           </AppText>
@@ -60,18 +69,15 @@ export function ProfileScreen() {
             <AppText color="textSecondary" variant="captionStrong">
               Project
             </AppText>
-            <AppText variant="labelStrong">
-              {selectedProject?.name ?? dashboardFixtures.shared.projectName}
-            </AppText>
+            <ProjectPill
+              label={selectedProject?.name ?? 'Blue Residency'}
+              onPress={
+                projects.length > 1 ? () => setProjectModalVisible(true) : undefined
+              }
+            />
           </View>
         </View>
       </AppCard>
-
-      <InlineMessage
-        message="This screen uses local frontend session data until the authentication API is connected."
-        title="Session boundary"
-        tone="information"
-      />
 
       <AppButton
         onPress={() => {
@@ -81,6 +87,17 @@ export function ProfileScreen() {
         }}
         title="Logout"
         variant="destructive"
+      />
+      <ProjectSelectionModal
+        onClose={() => setProjectModalVisible(false)}
+        onSelect={(projectId) => {
+          void setSelectedProject(projectId).finally(() => {
+            setProjectModalVisible(false);
+          });
+        }}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        visible={projectModalVisible}
       />
     </AppTabScaffold>
   );

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,17 +11,34 @@ import {
   AppText,
   HeroMetricCard,
   ListItem,
+  ProfileButton,
   ProjectPill,
   SectionHeader,
 } from '@/components';
-import { dashboardFixtures } from '@/features/dashboard/data/dashboardFixtures';
+import { getDashboard } from '@/features/dashboard/services/dashboardService';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
+import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { successFeedback } from '@/services/haptics';
+import { useAuthStore } from '@/store/authStore';
 
 export function StaffHomeScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
+  const projects = useAuthStore((state) => state.projects);
+  const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
+  const setSelectedProject = useAuthStore((state) => state.setSelectedProject);
+  const user = useAuthStore((state) => state.user);
+  const selectedProject = projects.find(
+    (project) => project.id === selectedProjectId,
+  );
+  const dashboard = getDashboard('staff', user, selectedProject);
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const initials = user?.name
+    ?.split(' ')
+    .map((item) => item[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <AppTabScaffold
@@ -32,10 +50,23 @@ export function StaffHomeScreen() {
         <View style={styles.headerSection}>
           <AppHeader
             leftAction={
-              <ProjectPill label={dashboardFixtures.shared.projectName} />
+              <ProjectPill
+                label={dashboard.projectName}
+                onPress={
+                  projects.length > 1 ? () => setProjectModalVisible(true) : undefined
+                }
+              />
             }
-            subtitle={dashboardFixtures.shared.dateLabel}
-            title={dashboardFixtures.staff.greeting}
+            rightAction={
+              initials ? (
+                <ProfileButton
+                  initials={initials}
+                  onPress={() => router.push('/(app)/profile')}
+                />
+              ) : undefined
+            }
+            subtitle={dashboard.dateLabel}
+            title={dashboard.greeting}
           />
         </View>
 
@@ -47,7 +78,7 @@ export function StaffHomeScreen() {
         />
 
         <View style={styles.metrics}>
-          {dashboardFixtures.staff.stats.map((metric) => (
+          {dashboard.stats.map((metric) => (
             <AppCard key={metric.label} surface="elevated">
               <Ionicons
                 accessibilityElementsHidden
@@ -65,16 +96,13 @@ export function StaffHomeScreen() {
 
         <View style={styles.section}>
           <SectionHeader title="Today's priorities" />
-          {dashboardFixtures.staff.priorities.map((item) => (
+          {dashboard.priorities.map((item) => (
             <ActionTile
               hint="Priority for field operations today"
               icon="checkmark-done-outline"
-              key={item}
-              label={item}
-              onPress={async () => {
-                await successFeedback();
-                router.push('/(app)/crm');
-              }}
+              key={item.key}
+              label={item.label}
+              onPress={() => router.push(item.route as never)}
             />
           ))}
         </View>
@@ -85,17 +113,33 @@ export function StaffHomeScreen() {
             onPressAction={() => router.push('/(app)/crm')}
             title="Recent lead activity"
           />
-          {dashboardFixtures.staff.recentActivity.map((item) => (
+          {dashboard.recentActivity.map((item, index) => (
             <ListItem
               icon="ellipse-outline"
               key={item}
-              onPress={() => router.push('/(app)/crm')}
+              onPress={() =>
+                router.push({
+                  params: { leadId: `lead-${Math.min(index + 1, 3)}` },
+                  pathname: '/(app)/lead-detail',
+                })
+              }
               subtitle={item}
               title="Lead activity"
             />
           ))}
         </View>
       </View>
+      <ProjectSelectionModal
+        onClose={() => setProjectModalVisible(false)}
+        onSelect={(projectId) => {
+          void setSelectedProject(projectId).finally(() => {
+            setProjectModalVisible(false);
+          });
+        }}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        visible={projectModalVisible}
+      />
     </AppTabScaffold>
   );
 }

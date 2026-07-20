@@ -1,12 +1,12 @@
 # Blue Marketing Mobile
 
-Blue Marketing Mobile is the React Native client for Blue Marketing operational users, including superadmins, administrators, staff, and other permission-controlled roles. The current branch adds a premium design system, reusable UI primitives, and development-only high-fidelity prototype flows without connecting live business APIs yet.
+Blue Marketing Mobile is the Expo React Native app for Blue Marketing operations teams. The application opens on login, restores authenticated sessions, and routes staff and administrators into role-specific dashboards backed by typed local data services that can later be replaced with API calls.
 
 ## Prerequisites
 
-- Node.js `22.13.x` minimum for Expo SDK 57, per Expo's SDK reference: https://docs.expo.dev/versions/latest/
+- Node.js `22.13.x` or later
 - npm `10+`
-- Android Studio for emulator-based Android testing
+- Android Studio for Android testing
 - Xcode for iOS simulator testing on macOS
 
 ## Installation
@@ -18,18 +18,18 @@ npm install
 ## Environment setup
 
 1. Copy `.env.example` to `.env`.
-2. Set `EXPO_PUBLIC_API_URL` to the Laravel mobile API base path, for example `http://YOUR_LOCAL_IP/api/v1/mobile`.
-3. Do not place secrets in `EXPO_PUBLIC_*` variables because Expo bundles them into the client application.
+2. Set `EXPO_PUBLIC_API_URL` to the future mobile API base URL.
+3. Keep secrets out of `EXPO_PUBLIC_*` variables.
 
-## Prototype preview routes
+## Application flow
 
-Development builds include a preview-only route group for the premium UI review shell:
-
-```text
-/(preview)
-```
-
-Use it to inspect the login prototype, staff and administrator dashboards, CRM screens, attendance states, and the design-system showcase without altering real authentication state.
+- Unauthenticated users land on the login screen.
+- Staff users sign in to the staff dashboard.
+- Administrators sign in to the administrator dashboard.
+- The authenticated shell includes `Home`, `CRM`, `Attendance`, and `Profile`.
+- CRM supports lead search, status filtering, detail views, follow-up logging, and lead updates.
+- Attendance supports check-in, check-out, and shift history.
+- Profile shows account details, project selection, and logout.
 
 ## Development commands
 
@@ -41,25 +41,11 @@ npm run web
 npm run lint
 npm run typecheck
 npm run test
+npm run format
 npm run format:check
-npm run validate
 ```
 
-## Android testing
-
-1. Start an Android emulator from Android Studio.
-2. Run `npm run android`.
-3. Confirm the premium login screen loads and preview routes render correctly in development mode.
-
-## iOS testing
-
-1. On macOS, start an iOS simulator in Xcode.
-2. Run `npm run ios`.
-3. Confirm the premium login screen loads and theme colors render correctly in light and dark mode.
-
 ## Validation commands
-
-Run these before review:
 
 ```bash
 npx expo-doctor
@@ -67,61 +53,23 @@ npm run typecheck
 npm run lint
 npm run test
 npm run format:check
-npm run validate
-npx expo export --platform web
+npx expo export --platform android --clear
 ```
 
 ## Folder architecture
 
-- `app/`: thin Expo Router route files and route-group layouts
-- `src/api/`: contracts, normalized error handling, request IDs, and the centralized Axios client
-- `src/components/`: reusable UI primitives and state foundations
-- `src/features/`: feature-oriented screen composition
-- `src/providers/`: root provider composition, query client, and theme context
-- `src/services/`: secure storage and sanitized development logging
-- `src/store/`: client-side session state only
-- `src/theme/`: semantic design tokens for light and dark themes
-- `tests/`: unit and component coverage for the foundation
+- `app/`: Expo Router route files and layouts
+- `src/api/`: shared API client infrastructure for later backend integration
+- `src/components/`: reusable UI primitives
+- `src/features/`: feature-level screens, services, stores, and typed local data sources
+- `src/providers/`: root app providers
+- `src/services/`: shared runtime services
+- `src/store/`: auth and application state
+- `src/theme/`: design tokens and theme definitions
+- `tests/`: unit and component tests
 
-## Security rules
+## Notes
 
-- `.env` is not committed.
-- Access tokens use Expo SecureStore, not AsyncStorage.
-- Passwords, full user records, roles, permissions, and API payloads are not persisted in secure storage.
-- Logger metadata is sanitized and limited to development output.
-- Authorization headers, tokens, passwords, phone numbers, addresses, CNIC/NIC values, and similar sensitive fields are redacted.
-- TanStack Query cache is not persisted.
-- Session bootstrap never treats a restored token as authenticated until server validation is added in the authentication sprint.
-- Restored candidate tokens remain globally inactive until the authentication sprint validates them through an explicit session-validation request, such as `/auth/me`, and promotes the session to `authenticated`.
-- If secure token deletion fails during logout, in-memory session state is still cleared immediately. Any residual token is treated as untrusted on the next bootstrap and must be deleted again or invalidated by the later `/auth/me` and `401` flow.
-
-## Current sprint status
-
-Sprint 2 establishes the premium mobile design system and static prototype experiences. Semantic tokens, light and dark themes, motion and haptic wrappers, reusable components, preview-only routes, mock UI data, and supporting tests are included. Live authentication and production business integrations remain intentionally unimplemented.
-
-Licensing and distribution terms for this application must be confirmed by Blue Marketing before production release.
-
-## Explicitly unimplemented modules
-
-- CRM
-- Attendance
-- Labour
-- Stock
-- Reports
-- Approvals
-- Project reports
-- Real authentication API requests
-- Analytics
-- Crash reporting
-- Push notifications
-- Biometric authentication
-
-Prototype screens in this branch use isolated mock data under `src/mocks/` only for static UI review.
-
-## Bundle identifiers
-
-Android package and iOS bundle identifiers are intentionally left unset. Final values must be agreed before signed production builds.
-
-## Temporary assets
-
-Application icons and splash assets remain temporary Blue Marketing placeholders only.
+- `app/` remains the only Expo Router directory.
+- Expo SDK 57, Expo Router, `expo-dev-client`, the EAS project ID, and the Android package ID remain unchanged.
+- Local typed services currently power authentication, dashboard data, CRM data, and attendance state. Those contracts are intended for later API replacement without redesigning screens.

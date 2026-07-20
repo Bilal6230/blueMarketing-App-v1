@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -13,7 +13,8 @@ import {
   SectionHeader,
   StatusBadge,
 } from '@/components';
-import { leadFixtures } from '@/features/crm/data/leadFixtures';
+import type { LeadFilterStatus } from '@/features/crm/services/crmService';
+import { useCrmStore } from '@/features/crm/store/crmStore';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { selectionFeedback } from '@/services/haptics';
 
@@ -21,21 +22,26 @@ const filters = ['All', 'Active', 'Overdue', 'Pending'] as const;
 
 export function LeadListScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    leadId?: string;
+    search?: string;
+    status?: LeadFilterStatus;
+  }>();
+  const getVisibleLeads = useCrmStore((state) => state.getVisibleLeads);
+  const selectLead = useCrmStore((state) => state.selectLead);
   const [filter, setFilter] = useState<(typeof filters)[number]>('All');
   const [search, setSearch] = useState('');
+  const leads = getVisibleLeads({ search, status: filter });
 
-  const leads = useMemo(() => {
-    return leadFixtures.filter((lead) => {
-      const filterMatch =
-        filter === 'All'
-          ? true
-          : lead.status.toLowerCase() === filter.toLowerCase();
-      const searchMatch = `${lead.name} ${lead.assignedTo}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-      return filterMatch && searchMatch;
-    });
-  }, [filter, search]);
+  useEffect(() => {
+    if (params.status && filters.includes(params.status)) {
+      setFilter(params.status);
+    }
+
+    if (typeof params.search === 'string') {
+      setSearch(params.search);
+    }
+  }, [params.search, params.status]);
 
   return (
     <AppTabScaffold
@@ -93,12 +99,13 @@ export function LeadListScreen() {
             }
             icon="person-outline"
             key={lead.id}
-            onPress={() =>
+            onPress={() => {
+              selectLead(lead.id);
               router.push({
                 params: { leadId: lead.id },
                 pathname: '/(app)/lead-detail',
-              })
-            }
+              });
+            }}
             subtitle={`${lead.maskedPhone} · ${lead.followUp} · Assigned to ${lead.assignedTo}`}
             title={lead.name}
           />

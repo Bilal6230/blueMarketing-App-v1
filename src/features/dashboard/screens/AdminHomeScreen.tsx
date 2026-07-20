@@ -1,23 +1,49 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import {
+  AppButton,
   AppCard,
   AppHeader,
   AppTabScaffold,
   AppText,
   HeroMetricCard,
-  InsightRow,
-  MetricCard,
-  ProgressBar,
+  ListItem,
+  ProfileButton,
   ProjectPill,
   SectionHeader,
 } from '@/components';
-import { dashboardFixtures } from '@/features/dashboard/data/dashboardFixtures';
+import { getDashboard } from '@/features/dashboard/services/dashboardService';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
+import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
+import { useAuthStore } from '@/store/authStore';
+
+type DetailModalState =
+  | null
+  | {
+      body: string[];
+      title: string;
+    };
 
 export function AdminHomeScreen() {
   const router = useRouter();
+  const projects = useAuthStore((state) => state.projects);
+  const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
+  const setSelectedProject = useAuthStore((state) => state.setSelectedProject);
+  const user = useAuthStore((state) => state.user);
+  const selectedProject = projects.find(
+    (project) => project.id === selectedProjectId,
+  );
+  const dashboard = getDashboard('administrator', user, selectedProject);
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const [detailModal, setDetailModal] = useState<DetailModalState>(null);
+  const initials = user?.name
+    ?.split(' ')
+    .map((item) => item[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <AppTabScaffold
@@ -28,10 +54,23 @@ export function AdminHomeScreen() {
       <View style={styles.container}>
         <AppHeader
           leftAction={
-            <ProjectPill label={dashboardFixtures.shared.projectName} />
+            <ProjectPill
+              label={dashboard.projectName}
+              onPress={
+                projects.length > 1 ? () => setProjectModalVisible(true) : undefined
+              }
+            />
           }
-          subtitle={dashboardFixtures.shared.dateLabel}
-          title="Administrator dashboard"
+          rightAction={
+            initials ? (
+              <ProfileButton
+                initials={initials}
+                onPress={() => router.push('/(app)/profile')}
+              />
+            ) : undefined
+          }
+          subtitle={dashboard.dateLabel}
+          title={dashboard.greeting}
         />
 
         <HeroMetricCard
@@ -42,13 +81,18 @@ export function AdminHomeScreen() {
         />
 
         <View style={styles.metricGrid}>
-          {dashboardFixtures.administrator.metrics.map((metric) => (
-            <MetricCard
+          {dashboard.metrics.map((metric) => (
+            <ListItem
               icon={metric.icon as never}
-              key={metric.label}
-              label={metric.label}
-              supportText={metric.supportText}
-              value={metric.value}
+              key={metric.key}
+              onPress={() =>
+                setDetailModal({
+                  body: [metric.supportText, metric.detail],
+                  title: metric.label,
+                })
+              }
+              subtitle={metric.supportText}
+              title={`${metric.label} · ${metric.value}`}
             />
           ))}
         </View>
@@ -58,13 +102,18 @@ export function AdminHomeScreen() {
             subtitle="Approvals and alerts requiring attention"
             title="Requires attention"
           />
-          {dashboardFixtures.administrator.alerts.map((item) => (
-            <InsightRow
-              detail="Review with your operations team."
+          {dashboard.alerts.map((item) => (
+            <ListItem
               icon="alert-circle-outline"
               key={item}
+              onPress={() =>
+                router.push({
+                  params: { status: 'Overdue' },
+                  pathname: '/(app)/crm',
+                })
+              }
+              subtitle="Review with your operations team."
               title={item}
-              tone="warning"
             />
           ))}
         </View>
@@ -74,14 +123,20 @@ export function AdminHomeScreen() {
             subtitle="Operational targets for the current week"
             title="Sales and collection metrics"
           />
-          <View style={styles.bars}>
-            {dashboardFixtures.administrator.overviewBars.map((bar) => (
-              <View key={bar.label} style={styles.barRow}>
-                <AppText variant="labelStrong">{bar.label}</AppText>
-                <ProgressBar progress={bar.progress} />
-              </View>
-            ))}
-          </View>
+          {dashboard.overviewBars.map((bar) => (
+            <ListItem
+              icon="bar-chart-outline"
+              key={bar.label}
+              onPress={() =>
+                setDetailModal({
+                  body: [`Current progress: ${Math.round(bar.progress * 100)}%.`],
+                  title: bar.label,
+                })
+              }
+              subtitle={`${Math.round(bar.progress * 100)}% complete`}
+              title={bar.label}
+            />
+          ))}
         </AppCard>
 
         <View style={styles.section}>
@@ -90,32 +145,83 @@ export function AdminHomeScreen() {
             onPressAction={() => router.push('/(app)/crm')}
             title="Recent activity"
           />
-          {dashboardFixtures.administrator.recentActivity.map((item) => (
-            <AppCard key={item} surface="muted">
-              <AppText variant="labelStrong">{item}</AppText>
-              <AppText color="textSecondary" variant="caption">
-                Operational summary update
-              </AppText>
-            </AppCard>
+          {dashboard.recentActivity.map((item, index) => (
+            <ListItem
+              icon="document-text-outline"
+              key={item}
+              onPress={() =>
+                setDetailModal({
+                  body: [
+                    item,
+                    `Reference ${index + 1} for ${dashboard.projectName}.`,
+                  ],
+                  title: 'Activity detail',
+                })
+              }
+              subtitle="Operational summary update"
+              title={item}
+            />
           ))}
         </View>
       </View>
+      <ProjectSelectionModal
+        onClose={() => setProjectModalVisible(false)}
+        onSelect={(projectId) => {
+          void setSelectedProject(projectId).finally(() => {
+            setProjectModalVisible(false);
+          });
+        }}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        visible={projectModalVisible}
+      />
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setDetailModal(null)}
+        transparent
+        visible={Boolean(detailModal)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            onPress={() => setDetailModal(null)}
+            style={StyleSheet.absoluteFill}
+          />
+          <AppCard style={styles.modalCard} surface="elevated">
+            <AppText variant="headingSmall">{detailModal?.title}</AppText>
+            {detailModal?.body.map((line) => (
+              <AppText key={line} color="textSecondary" variant="body">
+                {line}
+              </AppText>
+            ))}
+            <AppButton
+              onPress={() => setDetailModal(null)}
+              title="Close"
+              variant="secondary"
+            />
+          </AppCard>
+        </View>
+      </Modal>
     </AppTabScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  barRow: {
-    gap: 8,
-  },
-  bars: {
-    gap: 14,
-  },
   container: {
     gap: 24,
   },
   metricGrid: {
     gap: 12,
+  },
+  modalCard: {
+    maxWidth: 460,
+    width: '100%',
+  },
+  modalOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
   },
   section: {
     gap: 12,

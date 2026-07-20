@@ -36,13 +36,17 @@ export function BottomNavigation({
           item={item}
           key={item.key}
           onPress={async () => {
+            if (item.key === selectedKey) {
+              return;
+            }
+
             await selectionFeedback();
             if (item.onPress) {
               await item.onPress();
               return;
             }
             if (item.href) {
-              router.push(item.href as never);
+              router.replace(item.href as never);
             }
           }}
           selected={item.key === selectedKey}

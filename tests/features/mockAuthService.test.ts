@@ -1,6 +1,6 @@
-import { signInWithMockCredentials } from '@/features/auth/services/mockAuthService';
+import { signIn } from '@/features/auth/services/authService';
 
-describe('mockAuthService', () => {
+describe('authService', () => {
   beforeEach(() => {
     jest.useFakeTimers();
   });
@@ -11,7 +11,7 @@ describe('mockAuthService', () => {
   });
 
   it('returns a staff session for valid staff credentials', async () => {
-    const promise = signInWithMockCredentials({
+    const promise = signIn({
       email: 'staff@bluemarketing.com',
       password: 'password123',
     });
@@ -24,7 +24,7 @@ describe('mockAuthService', () => {
   });
 
   it('returns an administrator session for valid administrator credentials', async () => {
-    const promise = signInWithMockCredentials({
+    const promise = signIn({
       email: 'admin@bluemarketing.com',
       password: 'password123',
     });
@@ -37,7 +37,7 @@ describe('mockAuthService', () => {
   });
 
   it('rejects invalid credentials', async () => {
-    const promise = signInWithMockCredentials({
+    const promise = signIn({
       email: 'staff@bluemarketing.com',
       password: 'wrongpass',
     });

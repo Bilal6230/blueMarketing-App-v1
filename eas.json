@@ -3,29 +3,19 @@
     "version": ">= 16.0.0"
   },
   "build": {
-    "ui-preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_ENABLE_UI_PREVIEW": "true"
-      }
-    },
-    "production": {
-      "env": {
-        "EXPO_PUBLIC_ENABLE_UI_PREVIEW": "false"
-      }
-    },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_ENABLE_UI_PREVIEW": "true"
       }
-    }
+    },
+    "internal": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {}
   }
 }
