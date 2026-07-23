@@ -2,6 +2,15 @@ import type { AppRole, AuthUser } from '@/types/auth';
 import type { ProjectSummary } from '@/types/project';
 import { formatDateLabel, getFirstName, getGreeting } from '@/utils/dateTime';
 
+export type FinancialSummaryItem = {
+  amount: number;
+  detailBody: string[];
+  icon: 'business-outline' | 'cash-outline' | 'wallet-outline';
+  key: 'bank-account' | 'hand-cash' | 'total-cash';
+  label: 'Bank Account' | 'Hand Cash' | 'Total Cash';
+  supportText: string;
+};
+
 const dashboardSeedData = {
   administrator: {
     alerts: [
@@ -9,15 +18,42 @@ const dashboardSeedData = {
       '3 low-stock items need coordination',
       '12 lead follow-ups are overdue',
     ],
-    metrics: [
+    financialSummary: [
       {
-        detail: 'Collections from the last seven days across active projects.',
-        icon: 'cash-outline',
-        key: 'collections',
-        label: 'Collections today',
-        supportText: 'PKR 12.4M received this week',
-        value: 'PKR 48.2M',
+        amount: 67092,
+        detailBody: [
+          'PKR 67,092.00',
+          'Cash available for daily operations.',
+        ],
+        icon: 'wallet-outline',
+        key: 'hand-cash',
+        label: 'Hand Cash',
+        supportText: 'Cash currently available',
       },
+      {
+        amount: 1617510,
+        detailBody: [
+          'PKR 1,617,510.00',
+          'Funds available in registered bank accounts.',
+        ],
+        icon: 'business-outline',
+        key: 'bank-account',
+        label: 'Bank Account',
+        supportText: 'Current bank balance',
+      },
+      {
+        amount: 1684602,
+        detailBody: [
+          'PKR 1,684,602.00',
+          'Combined hand cash and bank balance.',
+        ],
+        icon: 'cash-outline',
+        key: 'total-cash',
+        label: 'Total Cash',
+        supportText: 'Combined available balance',
+      },
+    ] as FinancialSummaryItem[],
+    metrics: [
       {
         detail: 'Items that still require approval before close of business.',
         icon: 'shield-checkmark-outline',
@@ -37,13 +73,12 @@ const dashboardSeedData = {
     ],
     overviewBars: [
       { label: 'Recovery', progress: 0.785 },
-      { label: 'Collections', progress: 0.66 },
       { label: 'CRM follow-up compliance', progress: 0.58 },
     ],
     recentActivity: [
       'Manager approved revised instalment plan',
       'Lead recovery campaign refreshed for Block B',
-      'Collections summary shared with executive team',
+      'Weekly financial summary reviewed by management',
     ],
   },
   staff: {

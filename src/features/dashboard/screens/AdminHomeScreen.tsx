@@ -8,10 +8,10 @@ import {
   AppTabScaffold,
   AppText,
   DashboardHeader,
-  HeroMetricCard,
   ListItem,
   SectionHeader,
 } from '@/components';
+import { FinancialSummary } from '@/features/dashboard/components/FinancialSummary';
 import { getDashboard } from '@/features/dashboard/services/dashboardService';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { useAuthStore } from '@/store/authStore';
@@ -41,11 +41,14 @@ export function AdminHomeScreen() {
       <View style={styles.container}>
         <DashboardHeader />
 
-        <HeroMetricCard
-          caption="Collections"
-          progress={0.785}
-          subtitle="of PKR 61.4M"
-          title="PKR 48.2M received"
+        <FinancialSummary
+          items={dashboard.financialSummary}
+          onPressItem={(item) =>
+            setDetailModal({
+              body: item.detailBody,
+              title: item.label,
+            })
+          }
         />
 
         <View style={styles.metricGrid}>
@@ -60,7 +63,7 @@ export function AdminHomeScreen() {
                 })
               }
               subtitle={metric.supportText}
-              title={`${metric.label} · ${metric.value}`}
+              title={`${metric.label} \u00B7 ${metric.value}`}
             />
           ))}
         </View>
@@ -89,7 +92,7 @@ export function AdminHomeScreen() {
         <AppCard surface="elevated">
           <SectionHeader
             subtitle="Operational targets for the current week"
-            title="Sales and collection metrics"
+            title="Operational performance"
           />
           {dashboard.overviewBars.map((bar) => (
             <ListItem
@@ -166,7 +169,8 @@ export function AdminHomeScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    gap: 24,
+    gap: 20,
+    width: '100%',
   },
   metricGrid: {
     gap: 12,

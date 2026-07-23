@@ -160,7 +160,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   selectedOption: {},
 });

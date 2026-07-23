@@ -5,14 +5,28 @@ export const dashboardFixtures = {
       '3 low-stock items need coordination',
       '12 lead follow-ups are overdue',
     ],
+    financialSummary: [
+      {
+        amount: 67092,
+        icon: 'wallet-outline',
+        label: 'Hand Cash',
+        supportText: 'Cash currently available',
+      },
+      {
+        amount: 1617510,
+        icon: 'business-outline',
+        label: 'Bank Account',
+        supportText: 'Current bank balance',
+      },
+      {
+        amount: 1684602,
+        icon: 'cash-outline',
+        label: 'Total Cash',
+        supportText: 'Combined available balance',
+      },
+    ],
     greeting: 'Good morning, Sana',
     metrics: [
-      {
-        icon: 'cash-outline',
-        label: 'Collections today',
-        supportText: 'PKR 12.4M received this week',
-        value: 'PKR 48.2M',
-      },
       {
         icon: 'shield-checkmark-outline',
         label: 'Pending approvals',
@@ -28,7 +42,6 @@ export const dashboardFixtures = {
     ],
     overviewBars: [
       { label: 'Recovery', progress: 0.785 },
-      { label: 'Collections', progress: 0.66 },
       { label: 'CRM follow-up compliance', progress: 0.58 },
     ],
     quickActions: [
@@ -39,7 +52,7 @@ export const dashboardFixtures = {
     recentActivity: [
       'Manager approved revised instalment plan',
       'Lead recovery campaign refreshed for Block B',
-      'Collections summary shared with executive team',
+      'Weekly financial summary reviewed by management',
     ],
   },
   shared: {
