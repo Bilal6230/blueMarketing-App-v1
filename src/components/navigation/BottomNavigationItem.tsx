@@ -1,8 +1,7 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '@/components/controls/AppText';
-import { PressableScale } from '@/motion';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 export type BottomNavigationRoute = {
@@ -27,12 +26,13 @@ export function BottomNavigationItem({
   const { theme } = useAppTheme();
 
   return (
-    <PressableScale
+    <Pressable
       accessibilityLabel={item.label}
       accessibilityRole="tab"
       accessibilityState={{ selected }}
+      hitSlop={4}
       onPress={onPress}
-      style={styles.item}
+      style={({ pressed }) => [styles.item, { opacity: pressed ? 0.7 : 1 }]}
     >
       <View
         style={[
@@ -55,17 +55,23 @@ export function BottomNavigationItem({
         size={20}
       />
       <AppText
+        allowFontScaling={false}
+        ellipsizeMode="tail"
+        numberOfLines={1}
         color={selected ? 'textPrimary' : 'textMuted'}
-        style={{
-          color: selected
-            ? theme.component.navigation.labelSelected
-            : theme.component.navigation.labelDefault,
-        }}
+        style={[
+          styles.label,
+          {
+            color: selected
+              ? theme.component.navigation.labelSelected
+              : theme.component.navigation.labelDefault,
+          },
+        ]}
         variant="captionStrong"
       >
         {item.label}
       </AppText>
-    </PressableScale>
+    </Pressable>
   );
 }
 
@@ -77,10 +83,18 @@ const styles = StyleSheet.create({
   },
   item: {
     alignItems: 'center',
-    flex: 1,
+    flexBasis: 0,
+    flexGrow: 1,
     gap: 6,
-    minHeight: 56,
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    minHeight: 58,
+    minWidth: 0,
+    paddingHorizontal: 2,
+  },
+  label: {
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+    width: '100%',
   },
 });

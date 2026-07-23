@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,18 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   ActionTile,
   AppCard,
-  AppHeader,
   AppTabScaffold,
   AppText,
+  DashboardHeader,
   HeroMetricCard,
   ListItem,
-  ProfileButton,
-  ProjectPill,
   SectionHeader,
 } from '@/components';
 import { getDashboard } from '@/features/dashboard/services/dashboardService';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
-import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuthStore } from '@/store/authStore';
 
@@ -26,19 +22,11 @@ export function StaffHomeScreen() {
   const { theme } = useAppTheme();
   const projects = useAuthStore((state) => state.projects);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
-  const setSelectedProject = useAuthStore((state) => state.setSelectedProject);
   const user = useAuthStore((state) => state.user);
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId,
   );
   const dashboard = getDashboard('staff', user, selectedProject);
-  const [projectModalVisible, setProjectModalVisible] = useState(false);
-  const initials = user?.name
-    ?.split(' ')
-    .map((item) => item[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <AppTabScaffold
@@ -47,30 +35,7 @@ export function StaffHomeScreen() {
       testID="staff-home-screen"
     >
       <View style={styles.container}>
-        <View style={styles.headerSection}>
-          <AppHeader
-            leftAction={
-              <ProjectPill
-                label={dashboard.projectName}
-                onPress={
-                  projects.length > 1
-                    ? () => setProjectModalVisible(true)
-                    : undefined
-                }
-              />
-            }
-            rightAction={
-              initials ? (
-                <ProfileButton
-                  initials={initials}
-                  onPress={() => router.push('/(app)/profile')}
-                />
-              ) : undefined
-            }
-            subtitle={dashboard.dateLabel}
-            title={dashboard.greeting}
-          />
-        </View>
+        <DashboardHeader />
 
         <HeroMetricCard
           caption="Attendance"
@@ -131,17 +96,6 @@ export function StaffHomeScreen() {
           ))}
         </View>
       </View>
-      <ProjectSelectionModal
-        onClose={() => setProjectModalVisible(false)}
-        onSelect={(projectId) => {
-          void setSelectedProject(projectId).finally(() => {
-            setProjectModalVisible(false);
-          });
-        }}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        visible={projectModalVisible}
-      />
     </AppTabScaffold>
   );
 }
@@ -149,9 +103,6 @@ export function StaffHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     gap: 24,
-  },
-  headerSection: {
-    gap: 16,
   },
   metrics: {
     gap: 12,

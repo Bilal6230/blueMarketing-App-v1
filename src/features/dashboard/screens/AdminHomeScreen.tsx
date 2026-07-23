@@ -5,18 +5,15 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import {
   AppButton,
   AppCard,
-  AppHeader,
   AppTabScaffold,
   AppText,
+  DashboardHeader,
   HeroMetricCard,
   ListItem,
-  ProfileButton,
-  ProjectPill,
   SectionHeader,
 } from '@/components';
 import { getDashboard } from '@/features/dashboard/services/dashboardService';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
-import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
 import { useAuthStore } from '@/store/authStore';
 
 type DetailModalState = null | {
@@ -28,20 +25,12 @@ export function AdminHomeScreen() {
   const router = useRouter();
   const projects = useAuthStore((state) => state.projects);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
-  const setSelectedProject = useAuthStore((state) => state.setSelectedProject);
   const user = useAuthStore((state) => state.user);
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId,
   );
   const dashboard = getDashboard('administrator', user, selectedProject);
-  const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [detailModal, setDetailModal] = useState<DetailModalState>(null);
-  const initials = user?.name
-    ?.split(' ')
-    .map((item) => item[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
     <AppTabScaffold
@@ -50,28 +39,7 @@ export function AdminHomeScreen() {
       testID="admin-home-screen"
     >
       <View style={styles.container}>
-        <AppHeader
-          leftAction={
-            <ProjectPill
-              label={dashboard.projectName}
-              onPress={
-                projects.length > 1
-                  ? () => setProjectModalVisible(true)
-                  : undefined
-              }
-            />
-          }
-          rightAction={
-            initials ? (
-              <ProfileButton
-                initials={initials}
-                onPress={() => router.push('/(app)/profile')}
-              />
-            ) : undefined
-          }
-          subtitle={dashboard.dateLabel}
-          title={dashboard.greeting}
-        />
+        <DashboardHeader />
 
         <HeroMetricCard
           caption="Collections"
@@ -166,17 +134,6 @@ export function AdminHomeScreen() {
           ))}
         </View>
       </View>
-      <ProjectSelectionModal
-        onClose={() => setProjectModalVisible(false)}
-        onSelect={(projectId) => {
-          void setSelectedProject(projectId).finally(() => {
-            setProjectModalVisible(false);
-          });
-        }}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        visible={projectModalVisible}
-      />
       <Modal
         animationType="fade"
         onRequestClose={() => setDetailModal(null)}

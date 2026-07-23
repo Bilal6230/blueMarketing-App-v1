@@ -72,10 +72,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   content: {
+    alignItems: 'stretch',
+    borderRadius: 22,
     borderWidth: 1,
-    borderRadius: 24,
     flexDirection: 'row',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    minHeight: 72,
+    overflow: 'hidden',
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    width: '100%',
   },
 });

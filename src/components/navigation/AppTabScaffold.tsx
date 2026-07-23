@@ -133,7 +133,8 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   navigationArea: {
-    paddingTop: 12,
+    paddingTop: 8,
+    width: '100%',
   },
   safeArea: {
     flex: 1,

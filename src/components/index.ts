@@ -41,3 +41,4 @@ export * from '@/components/navigation/BackButton';
 export * from '@/components/navigation/BottomNavigation';
 export * from '@/components/navigation/BottomNavigationItem';
 export * from '@/components/navigation/ProfileButton';
+export * from '@/features/dashboard/components/DashboardHeader';
