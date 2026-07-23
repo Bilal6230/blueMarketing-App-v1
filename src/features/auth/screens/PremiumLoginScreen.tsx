@@ -2,11 +2,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { useRef } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 import { z } from 'zod';
 
 import {
-  AppButton,
   AppCard,
   AppText,
   BrandLockup,
@@ -16,6 +21,7 @@ import {
 } from '@/components';
 import { AppInput } from '@/components/controls/AppInput';
 import { signIn } from '@/features/auth/services/authService';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuthStore } from '@/store/authStore';
 import { testIds } from '@/utils/testIds';
 
@@ -31,6 +37,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function PremiumLoginScreen() {
   const router = useRouter();
+  const { theme } = useAppTheme();
   const passwordRef = useRef<TextInput | null>(null);
   const setSession = useAuthStore((state) => state.setSession);
   const {
@@ -132,13 +139,36 @@ export function PremiumLoginScreen() {
               />
             </View>
           ) : null}
-          <AppButton
-            loading={isSubmitting}
+          <Pressable
+            accessibilityLabel="Sign in"
+            accessibilityRole="button"
+            accessibilityState={{
+              busy: isSubmitting,
+              disabled: isSubmitting,
+            }}
+            disabled={isSubmitting}
             onPress={() => void onSubmit()}
+            style={({ pressed }) => [
+              styles.signInButton,
+              {
+                backgroundColor: isSubmitting
+                  ? theme.component.button.variants.primary.backgroundDisabled
+                  : pressed
+                    ? theme.component.button.variants.primary.backgroundPressed
+                    : theme.component.button.variants.primary.background,
+                opacity: isSubmitting ? 0.75 : 1,
+              },
+            ]}
             testID={testIds.signInButton}
-            title="Sign in"
-            variant="primary"
-          />
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <AppText style={styles.signInButtonText} variant="labelStrong">
+                Sign in
+              </AppText>
+            )}
+          </Pressable>
         </AppCard>
       </View>
     </Screen>
@@ -160,5 +190,16 @@ const styles = StyleSheet.create({
   screen: {
     flexGrow: 1,
     justifyContent: 'center',
+  },
+  signInButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 54,
+    justifyContent: 'center',
+    marginTop: 4,
+    width: '100%',
+  },
+  signInButtonText: {
+    color: '#FFFFFF',
   },
 });
