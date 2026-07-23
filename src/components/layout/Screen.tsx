@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, Ref } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +18,7 @@ type ScreenProps = PropsWithChildren<{
   contentContainerStyle?: StyleProp<ViewStyle>;
   keyboardAware?: boolean;
   scrollProps?: Omit<ScrollViewProps, 'contentContainerStyle'>;
+  scrollViewRef?: Ref<ScrollView>;
   scrollable?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -28,6 +29,7 @@ export function Screen({
   contentContainerStyle,
   keyboardAware = true,
   scrollProps,
+  scrollViewRef,
   scrollable = true,
   style,
   testID,
@@ -45,7 +47,9 @@ export function Screen({
         },
         contentContainerStyle,
       ]}
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       keyboardShouldPersistTaps="handled"
+      ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
       {...scrollProps}
     >
@@ -81,7 +85,11 @@ export function Screen({
       <MobilePreviewFrame>
         <Container
           behavior={
-            Platform.OS === 'ios' && keyboardAware ? 'padding' : undefined
+            keyboardAware
+              ? Platform.OS === 'ios'
+                ? 'padding'
+                : 'height'
+              : undefined
           }
           style={styles.safeArea}
         >

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import {
   AppButton,
@@ -28,6 +28,7 @@ export function ProfileScreen() {
     (project) => project.id === selectedProjectId,
   );
   const setSelectedProject = useAuthStore((state) => state.setSelectedProject);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const initials = user?.name
     ?.split(' ')
@@ -35,6 +36,33 @@ export function ProfileScreen() {
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+  const handleLogoutPress = () => {
+    Alert.alert(
+      'Log out?',
+      'Are you sure you want to log out of Blue Marketing?',
+      [
+        {
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          style: 'destructive',
+          text: 'Log out',
+          onPress: () => {
+            setIsLoggingOut(true);
+            void clearSession()
+              .then(() => {
+                router.replace('/(auth)/login');
+              })
+              .catch(() => {
+                setIsLoggingOut(false);
+              });
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <AppTabScaffold
@@ -82,11 +110,9 @@ export function ProfileScreen() {
       </AppCard>
 
       <AppButton
-        onPress={() => {
-          void clearSession().finally(() => {
-            router.replace('/(auth)/login');
-          });
-        }}
+        loading={isLoggingOut}
+        onPress={handleLogoutPress}
+        testID="profile-logout-button"
         title="Logout"
         variant="destructive"
       />

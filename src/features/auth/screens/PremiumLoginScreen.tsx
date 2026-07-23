@@ -5,6 +5,7 @@ import { useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -39,6 +40,7 @@ export function PremiumLoginScreen() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const passwordRef = useRef<TextInput | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const setSession = useAuthStore((state) => state.setSession);
   const {
     control,
@@ -77,7 +79,15 @@ export function PremiumLoginScreen() {
   });
 
   return (
-    <Screen contentContainerStyle={styles.screen} testID={testIds.loginScreen}>
+    <Screen
+      contentContainerStyle={styles.screen}
+      scrollProps={{
+        keyboardDismissMode: 'on-drag',
+        keyboardShouldPersistTaps: 'handled',
+      }}
+      scrollViewRef={scrollViewRef}
+      testID={testIds.loginScreen}
+    >
       <View style={styles.formArea}>
         <AppCard padding="lg" surface="elevated">
           <BrandLockup subtitle="Blue Marketing" />
@@ -121,6 +131,11 @@ export function PremiumLoginScreen() {
                 leadingIcon="lock-closed-outline"
                 onBlur={onBlur}
                 onChangeText={onChange}
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
+                }}
                 onSubmitEditing={onSubmit}
                 placeholder="Enter password"
                 returnKeyType="done"
@@ -181,15 +196,14 @@ const styles = StyleSheet.create({
   },
   formArea: {
     alignSelf: 'center',
-    flexGrow: 1,
-    justifyContent: 'center',
     maxWidth: 460,
     paddingBottom: 24,
     width: '100%',
   },
   screen: {
     flexGrow: 1,
-    justifyContent: 'center',
+    paddingBottom: 80,
+    paddingTop: 8,
   },
   signInButton: {
     alignItems: 'center',

@@ -1,8 +1,7 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '@/components/controls/AppText';
-import { PressableScale } from '@/motion';
 import { useAppTheme } from '@/hooks/useAppTheme';
 
 type ButtonVariant =
@@ -48,7 +47,7 @@ export function AppButton({
       : theme.component.button.standardHeight;
 
   return (
-    <PressableScale
+    <Pressable
       accessibilityHint={accessibilityHint}
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityRole="button"
@@ -103,7 +102,7 @@ export function AppButton({
           />
         ) : null}
       </View>
-    </PressableScale>
+    </Pressable>
   );
 }
 
