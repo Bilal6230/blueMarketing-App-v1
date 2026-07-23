@@ -1,12 +1,19 @@
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { AppText } from '@/components/controls/AppText';
-import { ProjectSelectionModal } from '@/features/projects/components/ProjectSelectionModal';
+import { DashboardProjectDropdown } from '@/features/dashboard/components/DashboardProjectDropdown';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuthStore } from '@/store/authStore';
+
+type DropdownAnchor = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
 
 export function DashboardHeader() {
   const router = useRouter();
@@ -17,8 +24,24 @@ export function DashboardHeader() {
   const selectedProject = projects.find(
     (project) => project.id === selectedProjectId,
   );
-  const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const projectSelectorRef = useRef<View | null>(null);
+  const [dropdownAnchor, setDropdownAnchor] = useState<DropdownAnchor | null>(
+    null,
+  );
+  const [projectDropdownVisible, setProjectDropdownVisible] = useState(false);
   const hasProjects = projects.length > 0;
+  const canOpenDropdown = projects.length > 0;
+
+  const handleProjectSelectorPress = () => {
+    if (!canOpenDropdown) {
+      return;
+    }
+
+    projectSelectorRef.current?.measureInWindow((x, y, width, height) => {
+      setDropdownAnchor({ height, width, x, y });
+      setProjectDropdownVisible(true);
+    });
+  };
 
   return (
     <>
@@ -40,46 +63,53 @@ export function DashboardHeader() {
           />
         </Pressable>
 
-        <Pressable
-          accessibilityLabel="Select project"
-          accessibilityRole="button"
-          disabled={!hasProjects}
-          onPress={() => setProjectModalVisible(true)}
-          style={({ pressed }) => [
-            styles.projectSelector,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              opacity: pressed && hasProjects ? 0.85 : 1,
-            },
-          ]}
+        <View
+          collapsable={false}
+          ref={projectSelectorRef}
+          style={styles.projectSelectorWrapper}
         >
-          <AppText
-            numberOfLines={1}
-            style={styles.projectName}
-            variant="labelStrong"
+          <Pressable
+            accessibilityLabel="Select project"
+            accessibilityRole="button"
+            disabled={!hasProjects}
+            onPress={handleProjectSelectorPress}
+            style={({ pressed }) => [
+              styles.projectSelector,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                opacity: pressed && hasProjects ? 0.85 : 1,
+              },
+            ]}
           >
-            {selectedProject?.name ?? 'Select project'}
-          </AppText>
+            <AppText
+              numberOfLines={1}
+              style={styles.projectName}
+              variant="labelStrong"
+            >
+              {selectedProject?.name ?? 'Select project'}
+            </AppText>
 
-          <Ionicons
-            color={theme.colors.textSecondary}
-            name="chevron-down"
-            size={18}
-          />
-        </Pressable>
+            <Ionicons
+              color={theme.colors.textSecondary}
+              name={projectDropdownVisible ? 'chevron-up' : 'chevron-down'}
+              size={18}
+            />
+          </Pressable>
+        </View>
       </View>
 
-      <ProjectSelectionModal
-        onClose={() => setProjectModalVisible(false)}
+      <DashboardProjectDropdown
+        anchor={dropdownAnchor}
+        onClose={() => setProjectDropdownVisible(false)}
         onSelect={(projectId) => {
           void setSelectedProject(projectId).finally(() => {
-            setProjectModalVisible(false);
+            setProjectDropdownVisible(false);
           });
         }}
         projects={projects}
         selectedProjectId={selectedProjectId}
-        visible={projectModalVisible}
+        visible={projectDropdownVisible}
       />
     </>
   );
@@ -106,11 +136,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  projectSelectorWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
   projectSelector: {
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    flex: 1,
     flexDirection: 'row',
     gap: 10,
     minHeight: 48,
