@@ -145,6 +145,7 @@ export function LeadListScreen() {
 
   return (
     <AppTabScaffold
+      contentContainerStyle={styles.scaffoldContent}
       items={getBottomNavigationItems('staff')}
       scrollable={false}
       selectedKey="crm"
@@ -155,6 +156,7 @@ export function LeadListScreen() {
         data={leads}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.id)}
+        style={styles.list}
         ListEmptyComponent={
           isLoadingLeads ? null : (
             <EmptyState
@@ -298,8 +300,15 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 4,
   },
+  list: {
+    flex: 1,
+    minHeight: 0,
+  },
   listContent: {
-    gap: 14,
-    paddingBottom: 24,
+    gap: 10,
+    paddingBottom: 8,
+  },
+  scaffoldContent: {
+    paddingBottom: 0,
   },
 });
