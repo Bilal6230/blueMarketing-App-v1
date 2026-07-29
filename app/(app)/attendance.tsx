@@ -1,5 +1,5 @@
-import { AttendanceScreen } from '@/features/attendance/screens/AttendanceScreen';
+import { LabourAttendanceScreen } from '@/features/attendance/labour/screens/LabourAttendanceScreen';
 
 export default function AttendanceRoute() {
-  return <AttendanceScreen />;
+  return <LabourAttendanceScreen />;
 }

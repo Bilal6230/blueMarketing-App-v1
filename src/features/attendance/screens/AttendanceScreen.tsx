@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
 
 import {
   AppTabScaffold,
@@ -8,7 +7,6 @@ import {
   SkeletonCard,
 } from '@/components';
 import { AttendanceHeader } from '@/features/attendance/components/AttendanceHeader';
-import { RecentAttendanceList } from '@/features/attendance/components/RecentAttendanceList';
 import { TodayAttendanceCard } from '@/features/attendance/components/TodayAttendanceCard';
 import { useAttendanceStore } from '@/features/attendance/store/attendanceStore';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
@@ -21,22 +19,15 @@ export const attendanceScreenContentContainerStyle = {
 };
 
 export function AttendanceScreen() {
-  const router = useRouter();
   const roles = useAuthStore((state) => state.roles);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
   const projects = useAuthStore((state) => state.projects);
   const role = resolvePrimaryRole(roles);
   const todayAttendance = useAttendanceStore((state) => state.todayAttendance);
   const todayProjectId = useAttendanceStore((state) => state.todayProjectId);
-  const history = useAttendanceStore((state) => state.history);
-  const historyError = useAttendanceStore((state) => state.historyError);
-  const isLoadingHistory = useAttendanceStore(
-    (state) => state.isLoadingHistory,
-  );
   const isLoadingToday = useAttendanceStore((state) => state.isLoadingToday);
   const isSubmitting = useAttendanceStore((state) => state.isSubmitting);
   const todayError = useAttendanceStore((state) => state.todayError);
-  const loadHistory = useAttendanceStore((state) => state.loadHistory);
   const loadTodayAttendance = useAttendanceStore(
     (state) => state.loadTodayAttendance,
   );
@@ -69,12 +60,7 @@ export function AttendanceScreen() {
     }
 
     void loadTodayAttendance(selectedProject.id);
-    void loadHistory({
-      page: 1,
-      perPage: 5,
-      projectId: selectedProject.id,
-    });
-  }, [loadHistory, loadTodayAttendance, selectedProject?.id]);
+  }, [loadTodayAttendance, selectedProject?.id]);
 
   useEffect(() => {
     if (!notice) {
@@ -153,20 +139,6 @@ export function AttendanceScreen() {
           projectLabel={activeProject?.name ?? selectedProject.name}
         />
       )}
-
-      <RecentAttendanceList
-        error={historyError}
-        isLoading={isLoadingHistory}
-        onRetry={() =>
-          void loadHistory({
-            page: 1,
-            perPage: 5,
-            projectId: selectedProject.id,
-          })
-        }
-        onViewAll={() => router.push('/(app)/attendance-history')}
-        records={history}
-      />
     </AppTabScaffold>
   );
 }

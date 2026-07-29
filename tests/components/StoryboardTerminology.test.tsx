@@ -1,5 +1,5 @@
 import { ProfileScreen } from '@/features/profile/screens/ProfileScreen';
-import { AttendanceScreen } from '@/features/attendance/screens/AttendanceScreen';
+import { LabourAttendanceScreen } from '@/features/attendance/labour/screens/LabourAttendanceScreen';
 import { LeadListScreen } from '@/features/crm/screens/LeadListScreen';
 import { PremiumLoginScreen } from '@/features/auth';
 import { StaffHomeScreen } from '@/features/dashboard/screens/StaffHomeScreen';
@@ -49,7 +49,7 @@ describe('visible screen terminology', () => {
       await renderWithTheme(<PremiumLoginScreen />),
       await renderWithTheme(<StaffHomeScreen />),
       await renderWithTheme(<LeadListScreen />),
-      await renderWithTheme(<AttendanceScreen />),
+      await renderWithTheme(<LabourAttendanceScreen />),
       await renderWithTheme(<ProfileScreen />),
     ];
 
