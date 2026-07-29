@@ -1,136 +1,172 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 
 import {
-  AppButton,
-  AppCard,
   AppTabScaffold,
-  AppText,
-  HeroMetricCard,
+  EmptyState,
   InlineMessage,
-  ProgressBar,
-  TimelineItem,
+  SkeletonCard,
 } from '@/components';
-import { createAttendanceSummary } from '@/features/attendance/services/attendanceService';
+import { AttendanceHeader } from '@/features/attendance/components/AttendanceHeader';
+import { RecentAttendanceList } from '@/features/attendance/components/RecentAttendanceList';
+import { TodayAttendanceCard } from '@/features/attendance/components/TodayAttendanceCard';
 import { useAttendanceStore } from '@/features/attendance/store/attendanceStore';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
+import { resolvePrimaryRole } from '@/features/auth/utils/authSession';
+import { formatAttendanceCurrentDate } from '@/features/attendance/utils/attendanceDateTime';
 import { useAuthStore } from '@/store/authStore';
 
+export const attendanceScreenContentContainerStyle = {
+  paddingBottom: 16,
+};
+
 export function AttendanceScreen() {
+  const router = useRouter();
+  const roles = useAuthStore((state) => state.roles);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
   const projects = useAuthStore((state) => state.projects);
-  const projectName =
-    projects.find((project) => project.id === selectedProjectId)?.name ??
-    'Blue Residency';
-  const checkIn = useAttendanceStore((state) => state.checkIn);
-  const checkOut = useAttendanceStore((state) => state.checkOut);
-  const checkedInAt = useAttendanceStore((state) => state.checkedInAt);
-  const checkedOutAt = useAttendanceStore((state) => state.checkedOutAt);
-  const [notice, setNotice] = useState<string | null>(null);
-  const summary = useMemo(
-    () =>
-      createAttendanceSummary({
-        checkedInAt,
-        checkedOutAt,
-        projectName,
-      }),
-    [projectName, checkedInAt, checkedOutAt],
+  const role = resolvePrimaryRole(roles);
+  const todayAttendance = useAttendanceStore((state) => state.todayAttendance);
+  const todayProjectId = useAttendanceStore((state) => state.todayProjectId);
+  const history = useAttendanceStore((state) => state.history);
+  const historyError = useAttendanceStore((state) => state.historyError);
+  const isLoadingHistory = useAttendanceStore(
+    (state) => state.isLoadingHistory,
   );
+  const isLoadingToday = useAttendanceStore((state) => state.isLoadingToday);
+  const isSubmitting = useAttendanceStore((state) => state.isSubmitting);
+  const todayError = useAttendanceStore((state) => state.todayError);
+  const loadHistory = useAttendanceStore((state) => state.loadHistory);
+  const loadTodayAttendance = useAttendanceStore(
+    (state) => state.loadTodayAttendance,
+  );
+  const submitCheckIn = useAttendanceStore((state) => state.submitCheckIn);
+  const submitCheckOut = useAttendanceStore((state) => state.submitCheckOut);
+  const [notice, setNotice] = useState<string | null>(null);
+  const selectedProject =
+    projects.find((project) => project.id === selectedProjectId) ??
+    projects[0] ??
+    null;
+  const activeProject =
+    projects.find((project) => project.id === todayProjectId) ??
+    selectedProject;
+  const attendance = todayAttendance ?? {
+    canCheckIn: true,
+    canCheckOut: false,
+    checkInTime: null,
+    checkOutTime: null,
+    date: '2026-07-29',
+    status: 'not_checked_in' as const,
+  };
+  const dateLabel = useMemo(
+    () => formatAttendanceCurrentDate(attendance.date),
+    [attendance.date],
+  );
+
+  useEffect(() => {
+    if (!selectedProject?.id) {
+      return;
+    }
+
+    void loadTodayAttendance(selectedProject.id);
+    void loadHistory({
+      page: 1,
+      perPage: 5,
+      projectId: selectedProject.id,
+    });
+  }, [loadHistory, loadTodayAttendance, selectedProject?.id]);
+
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setNotice(null);
+    }, 2500);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [notice]);
+
+  if (!selectedProject) {
+    return (
+      <AppTabScaffold
+        contentContainerStyle={attendanceScreenContentContainerStyle}
+        items={getBottomNavigationItems(role)}
+        selectedKey="attendance"
+        testID="attendance-screen"
+      >
+        <EmptyState
+          subtitle="Select a project to continue with staff attendance."
+          title="Attendance unavailable"
+        />
+      </AppTabScaffold>
+    );
+  }
 
   return (
     <AppTabScaffold
-      items={getBottomNavigationItems('staff')}
+      contentContainerStyle={attendanceScreenContentContainerStyle}
+      items={getBottomNavigationItems(role)}
       selectedKey="attendance"
       testID="attendance-screen"
     >
+      <AttendanceHeader
+        dateLabel={dateLabel}
+        projectLabel={activeProject?.name ?? selectedProject.name}
+        subtitle={
+          todayAttendance?.status === 'checked_in'
+            ? 'Attendance stays tied to the project used during check-in.'
+            : undefined
+        }
+      />
+
       {notice ? (
         <InlineMessage message={notice} title="Attendance" tone="success" />
       ) : null}
+      {todayError ? (
+        <InlineMessage message={todayError} title="Attendance" tone="danger" />
+      ) : null}
 
-      <AppCard surface="muted">
-        <AppText variant="labelStrong">Project and shift context</AppText>
-        <AppText color="textSecondary" variant="caption">
-          {summary.currentProjectLabel}
-        </AppText>
-      </AppCard>
-
-      <HeroMetricCard
-        caption="Attendance"
-        progress={summary.progress}
-        subtitle={summary.primarySubtitle}
-        title={summary.primaryMessage}
-      />
-
-      <AppButton
-        disabled={summary.status === 'checked_out'}
-        onPress={() => {
-          if (summary.status === 'checked_in') {
-            const result = checkOut();
-
-            if (result.ok) {
-              setNotice('Checked out successfully.');
-            }
-
-            return;
-          }
-
-          const result = checkIn();
-
-          if (result.ok) {
-            setNotice('Checked in successfully.');
-          }
-        }}
-        testID="attendance-primary-action"
-        title={summary.primaryActionLabel}
-        variant={summary.status === 'checked_out' ? 'secondary' : 'primary'}
-      />
-
-      <AppCard>
-        <AppText variant="headingSmall">Today</AppText>
-        {summary.currentTimeline.length === 0 ? (
-          <AppText color="textSecondary" variant="body">
-            Start your shift to record today&apos;s attendance activity.
-          </AppText>
-        ) : (
-          summary.currentTimeline.map((item) => (
-            <TimelineItem
-              body={item.body}
-              key={item.id}
-              time={item.time}
-              title={item.title}
-            />
-          ))
-        )}
-      </AppCard>
-
-      <AppCard>
-        <AppText variant="headingSmall">Weekly overview</AppText>
-        {summary.weekly.map((item) => (
-          <TimelineItem
-            body={`${Math.round(item.progress * 100)}% shift completion`}
-            key={item.label}
-            time={item.label}
-            title="Weekly attendance"
-          />
-        ))}
-        <ProgressBar
-          progress={
-            summary.weekly.reduce((sum, item) => sum + item.progress, 0) /
-            summary.weekly.length
-          }
+      {isLoadingToday && !todayAttendance ? (
+        <SkeletonCard />
+      ) : (
+        <TodayAttendanceCard
+          attendance={attendance}
+          isSubmitting={isSubmitting}
+          onCheckIn={() => {
+            void submitCheckIn(selectedProject.id).then((result) => {
+              if (result) {
+                setNotice('Checked in successfully.');
+              }
+            });
+          }}
+          onCheckOut={() => {
+            void submitCheckOut().then((result) => {
+              if (result) {
+                setNotice('Checked out successfully.');
+              }
+            });
+          }}
+          projectLabel={activeProject?.name ?? selectedProject.name}
         />
-      </AppCard>
+      )}
 
-      <AppCard>
-        <AppText variant="headingSmall">Recent attendance history</AppText>
-        {summary.history.map((item, index) => (
-          <TimelineItem
-            body={item}
-            key={`${item}-${index}`}
-            time={`Entry ${index + 1}`}
-            title="Attendance record"
-          />
-        ))}
-      </AppCard>
+      <RecentAttendanceList
+        error={historyError}
+        isLoading={isLoadingHistory}
+        onRetry={() =>
+          void loadHistory({
+            page: 1,
+            perPage: 5,
+            projectId: selectedProject.id,
+          })
+        }
+        onViewAll={() => router.push('/(app)/attendance-history')}
+        records={history}
+      />
     </AppTabScaffold>
   );
 }
