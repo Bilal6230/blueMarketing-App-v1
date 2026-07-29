@@ -23,10 +23,13 @@ const accountRecords: Record<string, AccountRecord> = {
       'approvals.view',
       'attendance.manage',
       'collections.view',
+      'create lead',
       'crm.view',
       'dashboard.view',
       'inventory.view',
       'profile.view',
+      'read lead',
+      'update lead',
     ],
     projects: [
       { id: 101, name: 'Blue Residency' },
@@ -47,6 +50,8 @@ const accountRecords: Record<string, AccountRecord> = {
       'crm.view',
       'dashboard.view',
       'profile.view',
+      'read lead',
+      'update lead',
     ],
     projects: [
       { id: 101, name: 'Blue Residency' },

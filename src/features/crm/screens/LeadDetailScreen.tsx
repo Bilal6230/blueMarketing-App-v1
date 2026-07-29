@@ -1,327 +1,547 @@
-import { useMemo, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import {
   AppButton,
   AppCard,
   AppHeader,
-  AppInput,
   AppText,
   Avatar,
   BackButton,
+  EmptyState,
   InlineMessage,
-  ProjectPill,
   Screen,
-  SectionHeader,
-  SegmentedControl,
-  StatusBadge,
-  TimelineItem,
 } from '@/components';
-import type { LeadStatus } from '@/features/crm/data/leadFixtures';
+import { UpdateFollowUpSheet } from '@/features/crm/components/UpdateFollowUpSheet';
+import { getCrmStatusLabel } from '@/features/crm/data/crmMetadata';
 import { useCrmStore } from '@/features/crm/store/crmStore';
-import { parseIsoDateInput, toIsoDateInputValue } from '@/utils/dateTime';
+import { hasCrmPermission } from '@/features/crm/utils/crmPermissions';
+import {
+  formatHistoryDuration,
+  formatInfoDateTime,
+  formatLeadFollowUpLabel,
+  getFollowUpTiming,
+  getHistoryStatusLabel,
+  getLeadFullName,
+  getLeadInitials,
+  getRecordStateLabel,
+} from '@/features/crm/utils/crmSelectors';
+import { useAuthStore } from '@/store/authStore';
 
-const statusOptions: { label: string; value: LeadStatus }[] = [
-  { label: 'Active', value: 'Active' },
-  { label: 'Overdue', value: 'Overdue' },
-  { label: 'Pending', value: 'Pending' },
-];
+function toDateInput(value: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  return value.slice(0, 10);
+}
+
+function toTimeInput(value: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  return value.slice(11, 16);
+}
+
+function combineDateAndTime(date: string, time: string) {
+  const trimmedDate = date.trim();
+  const trimmedTime = time.trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+    return null;
+  }
+
+  if (!/^\d{2}:\d{2}$/.test(trimmedTime)) {
+    return null;
+  }
+
+  return `${trimmedDate} ${trimmedTime}:00`;
+}
 
 export function LeadDetailScreen() {
-  const params = useLocalSearchParams<{ leadId?: string }>();
-  const addLeadFollowUp = useCrmStore((state) => state.addLeadFollowUp);
-  const leads = useCrmStore((state) => state.leads);
-  const updateLeadRecord = useCrmStore((state) => state.updateLeadRecord);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [followUpModalVisible, setFollowUpModalVisible] = useState(false);
-  const [followUpNote, setFollowUpNote] = useState('');
-  const [followUpDateValue, setFollowUpDateValue] = useState(
-    toIsoDateInputValue(new Date()),
+  const router = useRouter();
+  const params = useLocalSearchParams<{ leadId?: string; notice?: string }>();
+  const permissions = useAuthStore((state) => state.permissions);
+  const canUpdateLead = hasCrmPermission(permissions, 'update lead');
+  const leadId = Number(params.leadId ?? 0);
+  const loadLeadDetail = useCrmStore((state) => state.loadLeadDetail);
+  const loadLeadHistory = useCrmStore((state) => state.loadLeadHistory);
+  const detailById = useCrmStore((state) => state.detailById);
+  const historyByLeadId = useCrmStore((state) => state.historyByLeadId);
+  const isLoadingLead = useCrmStore((state) => state.isLoadingLead);
+  const isMutating = useCrmStore((state) => state.isMutating);
+  const updateLeadFollowUp = useCrmStore((state) => state.updateLeadFollowUp);
+  const lead = detailById[leadId] ?? null;
+  const history = historyByLeadId[leadId] ?? [];
+  const [notice, setNotice] = useState<string | null>(
+    typeof params.notice === 'string' ? params.notice : null,
   );
-  const [updateModalVisible, setUpdateModalVisible] = useState(false);
-  const [assignee, setAssignee] = useState('');
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<LeadStatus>('Active');
-  const [updatedFollowUpDate, setUpdatedFollowUpDate] = useState(
-    toIsoDateInputValue(new Date()),
+  const [followUpVisible, setFollowUpVisible] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpTime, setFollowUpTime] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<number | null>(null);
+  const [errors, setErrors] = useState<{ followUpDate?: string; followUpTime?: string }>({});
+
+  useEffect(() => {
+    if (!leadId) {
+      return;
+    }
+
+    void loadLeadDetail(leadId);
+    void loadLeadHistory(leadId);
+  }, [leadId, loadLeadDetail, loadLeadHistory]);
+
+  useEffect(() => {
+    if (!lead) {
+      return;
+    }
+
+    setFollowUpDate(toDateInput(lead.followUp));
+    setFollowUpTime(toTimeInput(lead.followUp));
+  }, [lead]);
+
+  const followUpTiming = useMemo(
+    () => getFollowUpTiming(lead?.followUp ?? null),
+    [lead?.followUp],
   );
-  const lead = useMemo(
-    () =>
-      leads.find((item) => item.id === (params.leadId ?? '')) ??
-      leads.find((item) => item.id === 'lead-1') ??
-      null,
-    [leads, params.leadId],
-  );
+
+  if (!leadId) {
+    return (
+      <Screen testID="lead-detail-screen">
+        <AppHeader leftAction={<BackButton />} title="Lead detail" />
+        <EmptyState subtitle="Select a lead from CRM to continue." title="Lead unavailable" />
+      </Screen>
+    );
+  }
+
+  if (isLoadingLead && !lead) {
+    return (
+      <Screen testID="lead-detail-screen">
+        <AppHeader leftAction={<BackButton />} title="Lead detail" />
+      </Screen>
+    );
+  }
 
   if (!lead) {
     return (
       <Screen testID="lead-detail-screen">
         <AppHeader leftAction={<BackButton />} title="Lead detail" />
-        <InlineMessage
-          message="Unable to complete this action."
-          title="Lead detail"
-          tone="warning"
-        />
+        <EmptyState subtitle="This lead could not be found." title="Lead unavailable" />
       </Screen>
     );
   }
 
+  const fullName = getLeadFullName(lead.firstName, lead.lastName);
+
   return (
     <Screen testID="lead-detail-screen">
-      <AppHeader leftAction={<BackButton />} title="Lead detail" />
+      <AppHeader
+        leftAction={<BackButton />}
+        rightAction={
+          canUpdateLead ? (
+            <Pressable
+              accessibilityLabel="Edit lead"
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  params: { leadId: String(lead.id) },
+                  pathname: '/(app)/lead-edit',
+                })
+              }
+              style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+            >
+              <AppText color="primary" variant="labelStrong">
+                Edit
+              </AppText>
+            </Pressable>
+          ) : undefined
+        }
+        title="Lead detail"
+      />
+
       {notice ? (
-        <InlineMessage
-          message={notice}
-          title="Lead detail"
-          tone="information"
-        />
+        <InlineMessage message={notice} title="CRM" tone="information" />
       ) : null}
 
-      <AppCard surface="elevated">
-        <View style={styles.hero}>
-          <Avatar initials={lead.initials} size={64} />
-          <AppText align="center" variant="headingLarge">
-            {lead.name}
+      <AppCard style={styles.identityPanel} surface="elevated">
+        <Avatar initials={getLeadInitials(lead.firstName, lead.lastName)} size={52} />
+        <View style={styles.identityCopy}>
+          <AppText numberOfLines={1} variant="headingSmall">
+            {fullName}
           </AppText>
-          <StatusBadge label={lead.status} variant={lead.statusTone} />
-          <View style={styles.actionRow}>
-            <AppButton
-              fullWidth={false}
-              onPress={async () => {
-                const callUrl = `tel:${lead.fullPhone}`;
-                const canOpen = await Linking.canOpenURL(callUrl);
-
-                if (!canOpen) {
-                  setNotice('Unable to complete this action.');
-                  return;
-                }
-
-                await Linking.openURL(callUrl);
-              }}
-              title="Call lead"
-              variant="primary"
-            />
-            <AppButton
-              fullWidth={false}
-              onPress={() => setFollowUpModalVisible(true)}
-              title="Log follow-up"
-              variant="secondary"
+          <AppText color="textSecondary" numberOfLines={1} variant="body">
+            {lead.project.name ?? 'Project unavailable'}
+          </AppText>
+          <View style={styles.identityMeta}>
+            <MetaPill label={getRecordStateLabel(lead.recordState)} tone="neutral" />
+            <MetaPill
+              label={formatLeadFollowUpLabel(lead.followUp)}
+              tone={
+                followUpTiming === 'overdue'
+                  ? 'danger'
+                  : followUpTiming === 'today'
+                    ? 'warning'
+                    : followUpTiming === 'upcoming'
+                      ? 'primary'
+                      : 'neutral'
+              }
             />
           </View>
         </View>
       </AppCard>
 
-      <AppCard>
-        <SectionHeader title="Identity" />
-        <AppText variant="labelStrong">{lead.name}</AppText>
-        <ProjectPill label={lead.project} />
-      </AppCard>
+      <View style={styles.actionRow}>
+        <AppButton
+          disabled={!lead.phoneNumber}
+          fullWidth={false}
+          leadingIcon="call-outline"
+          onPress={async () => {
+            const url = `tel:${lead.phoneNumber}`;
+            const canOpen = await Linking.canOpenURL(url);
 
-      <AppCard>
-        <SectionHeader title="Contact" />
-        <AppText variant="bodyStrong">{lead.maskedPhone}</AppText>
-        <AppText color="textSecondary" variant="body">
-          {lead.email}
-        </AppText>
-      </AppCard>
+            if (!canOpen) {
+              setNotice('Unable to start the phone call.');
+              return;
+            }
 
-      <AppCard>
-        <SectionHeader title="Follow-up" />
-        <AppText variant="bodyStrong">{lead.followUp}</AppText>
-      </AppCard>
-
-      <AppCard>
-        <SectionHeader title="Assignment" />
-        <AppText variant="bodyStrong">{lead.assignedTo}</AppText>
-      </AppCard>
-
-      <AppCard>
-        <SectionHeader
-          actionLabel="Update"
-          onPressAction={() => {
-            setAssignee(lead.assignedTo);
-            setEmail(lead.email);
-            setStatus(lead.status);
-            setUpdatedFollowUpDate(
-              parseIsoDateInput(lead.followUpDate)
-                ? toIsoDateInputValue(new Date(lead.followUpDate))
-                : toIsoDateInputValue(new Date()),
-            );
-            setUpdateModalVisible(true);
+            await Linking.openURL(url);
           }}
-          title="Activity timeline"
+          title="Call"
         />
-        {lead.timeline.map((item) => (
-          <TimelineItem
-            body={item.body}
-            key={`${item.title}-${item.time}`}
-            time={item.time}
-            title={item.title}
+        {canUpdateLead ? (
+          <AppButton
+            fullWidth={false}
+            leadingIcon="time-outline"
+            onPress={() => setFollowUpVisible(true)}
+            title="Update follow-up"
+            variant="secondary"
           />
-        ))}
+        ) : null}
+      </View>
+
+      <AppCard style={styles.sectionCard} surface="elevated">
+        <InfoRow
+          icon="call-outline"
+          label="Primary phone"
+          onPress={async () => {
+            const url = `tel:${lead.phoneNumber}`;
+            const canOpen = await Linking.canOpenURL(url);
+
+            if (!canOpen) {
+              setNotice('Unable to start the phone call.');
+              return;
+            }
+
+            await Linking.openURL(url);
+          }}
+          value={lead.phoneNumber}
+        />
+        {lead.mobileNumber ? (
+          <InfoRow
+            icon="phone-portrait-outline"
+            label="Secondary phone"
+            onPress={async () => {
+              const url = `tel:${lead.mobileNumber}`;
+              const canOpen = await Linking.canOpenURL(url);
+
+              if (!canOpen) {
+                setNotice('Unable to start the phone call.');
+                return;
+              }
+
+              await Linking.openURL(url);
+            }}
+            value={lead.mobileNumber}
+          />
+        ) : null}
+        {lead.nicNumberMasked ? (
+          <InfoRow icon="card-outline" label="Masked NIC" value={lead.nicNumberMasked} />
+        ) : null}
+        {lead.followUp ? (
+          <InfoRow
+            icon="calendar-outline"
+            label="Next follow-up"
+            value={formatInfoDateTime(lead.followUp) ?? lead.followUp}
+          />
+        ) : null}
+        {lead.assignedUser ? (
+          <InfoRow icon="person-outline" label="Assigned to" value={lead.assignedUser.name} />
+        ) : null}
+        {lead.createdAt ? (
+          <InfoRow
+            icon="time-outline"
+            label="Created"
+            value={formatInfoDateTime(lead.createdAt) ?? lead.createdAt}
+          />
+        ) : null}
+        {lead.updatedAt ? (
+          <InfoRow
+            icon="refresh-outline"
+            label="Last updated"
+            value={formatInfoDateTime(lead.updatedAt) ?? lead.updatedAt}
+          />
+        ) : null}
       </AppCard>
 
-      <Modal
-        animationType="slide"
-        onRequestClose={() => setFollowUpModalVisible(false)}
-        transparent
-        visible={followUpModalVisible}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            onPress={() => setFollowUpModalVisible(false)}
-            style={StyleSheet.absoluteFill}
-          />
-          <AppCard style={styles.modalCard} surface="elevated">
-            <AppText variant="headingSmall">Add follow-up</AppText>
-            <AppInput
-              helperText="Enter the next action for this lead."
-              label="Note"
-              multiline
-              onChangeText={setFollowUpNote}
-              value={followUpNote}
-            />
-            <AppInput
-              helperText="Use YYYY-MM-DD."
-              label="Follow-up date"
-              onChangeText={setFollowUpDateValue}
-              value={followUpDateValue}
-            />
-            <View style={styles.modalActions}>
-              <AppButton
-                fullWidth={false}
-                onPress={() => setFollowUpModalVisible(false)}
-                title="Cancel"
-                variant="secondary"
-              />
-              <AppButton
-                fullWidth={false}
-                onPress={() => {
-                  const parsedDate = parseIsoDateInput(followUpDateValue);
+      {lead.latestRemarks ? (
+        <AppCard style={styles.sectionCard} surface="elevated">
+          <AppText variant="title">Latest remarks</AppText>
+          <AppText color="textSecondary" variant="body">
+            {lead.latestRemarks}
+          </AppText>
+        </AppCard>
+      ) : null}
 
-                  if (!followUpNote.trim() || !parsedDate) {
-                    setNotice('Unable to complete this action.');
-                    return;
-                  }
-
-                  const saved = addLeadFollowUp(lead.id, {
-                    note: followUpNote.trim(),
-                    scheduledFor: parsedDate,
-                  });
-
-                  if (!saved) {
-                    setNotice('Unable to complete this action.');
-                    return;
-                  }
-
-                  setFollowUpModalVisible(false);
-                  setFollowUpNote('');
-                  setNotice('Follow-up added.');
-                }}
-                title="Save"
-              />
+      <AppCard style={styles.sectionCard} surface="elevated">
+        <AppText variant="title">History</AppText>
+        {history.length === 0 ? (
+          <AppText color="textSecondary" variant="body">
+            No follow-up history yet.
+          </AppText>
+        ) : (
+          history.map((item, index) => (
+            <View
+              key={item.id}
+              style={[
+                styles.historyItem,
+                index < history.length - 1 ? styles.historyItemBorder : null,
+              ]}
+            >
+              <View style={styles.timelineDot} />
+              <View style={styles.historyCopy}>
+                <AppText variant="labelStrong">
+                  {getHistoryStatusLabel(item.callStatus)}
+                </AppText>
+                {item.comment ? (
+                  <AppText color="textSecondary" variant="body">
+                    {item.comment}
+                  </AppText>
+                ) : null}
+                <View style={styles.historyMeta}>
+                  {item.followUp ? (
+                    <AppText color="textSecondary" variant="caption">
+                      {`Follow-up \u00B7 ${formatInfoDateTime(item.followUp) ?? item.followUp}`}
+                    </AppText>
+                  ) : null}
+                  {item.callDuration ? (
+                    <AppText color="textSecondary" variant="caption">
+                      {`Duration \u00B7 ${formatHistoryDuration(item.callDuration)}`}
+                    </AppText>
+                  ) : null}
+                  {item.user || item.createdAt ? (
+                    <AppText color="textSecondary" variant="caption">
+                      {`${item.user?.name ?? 'Unknown'} \u00B7 ${formatInfoDateTime(item.createdAt) ?? item.createdAt ?? ''}`}
+                    </AppText>
+                  ) : null}
+                </View>
+              </View>
             </View>
-          </AppCard>
-        </View>
-      </Modal>
+          ))
+        )}
+      </AppCard>
 
-      <Modal
-        animationType="slide"
-        onRequestClose={() => setUpdateModalVisible(false)}
-        transparent
-        visible={updateModalVisible}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            onPress={() => setUpdateModalVisible(false)}
-            style={StyleSheet.absoluteFill}
-          />
-          <AppCard style={styles.modalCard} surface="elevated">
-            <AppText variant="headingSmall">Update lead</AppText>
-            <SegmentedControl
-              accessibilityLabel="Lead status"
-              onChange={setStatus}
-              options={statusOptions}
-              value={status}
-            />
-            <AppInput
-              label="Assignee"
-              onChangeText={setAssignee}
-              value={assignee}
-            />
-            <AppInput label="Email" onChangeText={setEmail} value={email} />
-            <AppInput
-              helperText="Use YYYY-MM-DD."
-              label="Follow-up date"
-              onChangeText={setUpdatedFollowUpDate}
-              value={updatedFollowUpDate}
-            />
-            <View style={styles.modalActions}>
-              <AppButton
-                fullWidth={false}
-                onPress={() => setUpdateModalVisible(false)}
-                title="Cancel"
-                variant="secondary"
-              />
-              <AppButton
-                fullWidth={false}
-                onPress={() => {
-                  const parsedDate = parseIsoDateInput(updatedFollowUpDate);
+      <UpdateFollowUpSheet
+        errors={errors}
+        followUpDate={followUpDate}
+        followUpTime={followUpTime}
+        remarks={remarks}
+        saving={isMutating}
+        selectedStatus={selectedStatus as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | null}
+        visible={followUpVisible}
+        onChangeDate={setFollowUpDate}
+        onChangeRemarks={setRemarks}
+        onChangeStatus={(value) => setSelectedStatus(value)}
+        onChangeTime={setFollowUpTime}
+        onClose={() => {
+          setErrors({});
+          setFollowUpVisible(false);
+        }}
+        onSave={async () => {
+          const nextErrors: { followUpDate?: string; followUpTime?: string } = {};
 
-                  if (!assignee.trim() || !email.trim() || !parsedDate) {
-                    setNotice('Unable to complete this action.');
-                    return;
-                  }
+          if (!followUpDate.trim()) {
+            nextErrors.followUpDate = 'Follow-up date is required.';
+          }
 
-                  const saved = updateLeadRecord(lead.id, {
-                    assignedTo: assignee.trim(),
-                    email: email.trim(),
-                    followUpDate: parsedDate,
-                    status,
-                  });
+          if (!followUpTime.trim()) {
+            nextErrors.followUpTime = 'Time is required.';
+          }
 
-                  if (!saved) {
-                    setNotice('Unable to complete this action.');
-                    return;
-                  }
+          const followUpDateTime = combineDateAndTime(followUpDate, followUpTime);
 
-                  setUpdateModalVisible(false);
-                  setNotice('Lead updated.');
-                }}
-                title="Save"
-              />
-            </View>
-          </AppCard>
-        </View>
-      </Modal>
+          if (!followUpDateTime) {
+            nextErrors.followUpTime = 'Use a valid date and time.';
+          }
+
+          setErrors(nextErrors);
+
+          if (Object.keys(nextErrors).length > 0 || !followUpDateTime) {
+            return;
+          }
+
+          const updatedLead = await updateLeadFollowUp(lead.id, {
+            followUpDate: followUpDateTime,
+            remarks: remarks.trim() || null,
+            status: selectedStatus as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | null,
+          });
+
+          if (!updatedLead) {
+            setNotice('Unable to update the follow-up.');
+            return;
+          }
+
+          setFollowUpVisible(false);
+          setRemarks('');
+          setErrors({});
+          setNotice('Follow-up updated.');
+        }}
+      />
     </Screen>
+  );
+}
+
+type InfoRowProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void | Promise<void>;
+  value: string;
+};
+
+function InfoRow({ icon, label, onPress, value }: InfoRowProps) {
+  const content = (
+    <View style={styles.infoRow}>
+      <View style={styles.infoLead}>
+        <Ionicons color="#526276" name={icon} size={18} />
+        <AppText color="textSecondary" variant="caption">
+          {label}
+        </AppText>
+      </View>
+      <AppText align="right" style={styles.infoValue} variant="bodyStrong">
+        {value}
+      </AppText>
+    </View>
+  );
+
+  if (!onPress) {
+    return content;
+  }
+
+  return (
+    <Pressable
+      accessibilityLabel={`${label} ${value}`}
+      accessibilityRole="button"
+      onPress={() => void onPress()}
+      style={({ pressed }) => [{ opacity: pressed ? 0.82 : 1 }]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+type MetaPillProps = {
+  label: string;
+  tone: 'danger' | 'neutral' | 'primary' | 'warning';
+};
+
+function MetaPill({ label, tone }: MetaPillProps) {
+  const backgroundColor =
+    tone === 'danger'
+      ? '#FDECEF'
+      : tone === 'warning'
+        ? '#FFF3DE'
+        : tone === 'primary'
+          ? '#EEF5FF'
+          : '#EDF2F8';
+  const textColor =
+    tone === 'danger'
+      ? '#C43D4B'
+      : tone === 'warning'
+        ? '#9A5B0F'
+        : tone === 'primary'
+          ? '#2878F0'
+          : '#526276';
+
+  return (
+    <View style={[styles.metaPill, { backgroundColor }]}>
+      <AppText style={{ color: textColor }} variant="captionStrong">
+        {label}
+      </AppText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  historyCopy: {
+    flex: 1,
+    gap: 6,
+    minWidth: 0,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 12,
+  },
+  historyItemBorder: {
+    borderBottomColor: '#D7E0EB',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyMeta: {
+    gap: 4,
+  },
+  identityCopy: {
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+  },
+  identityMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  identityPanel: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  infoLead: {
+    alignItems: 'center',
+    flexDirection: 'row',
     gap: 8,
   },
-  hero: {
+  infoRow: {
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  infoValue: {
+    flex: 1,
+    minWidth: 0,
+  },
+  metaPill: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sectionCard: {
     gap: 12,
   },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    maxWidth: 480,
-    width: '100%',
-  },
-  modalOverlay: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
+  timelineDot: {
+    backgroundColor: '#2878F0',
+    borderRadius: 999,
+    height: 10,
+    marginTop: 6,
+    width: 10,
   },
 });
