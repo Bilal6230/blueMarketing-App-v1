@@ -17,6 +17,7 @@ async function flushDelay() {
 describe('labourAttendanceStore', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-07-29T08:56:00'));
     labourService.__resetLabourAttendanceServiceData();
     useLabourAttendanceStore.getState().resetLabourAttendanceState();
   });
@@ -54,7 +55,7 @@ describe('labourAttendanceStore', () => {
   it('preserves drafts across search and pagination and does not overwrite explicit drafts with mark all present', async () => {
     const loadPromise = useLabourAttendanceStore.getState().loadLabours({
       page: 1,
-      perPage: 12,
+      perPage: 100,
       projectId: 101,
       recordState: 'active',
       siteId: 1002,
@@ -72,7 +73,7 @@ describe('labourAttendanceStore', () => {
     useLabourAttendanceStore.getState().setSearch('Ali');
     const filteredLoad = useLabourAttendanceStore.getState().loadLabours({
       page: 1,
-      perPage: 12,
+      perPage: 100,
       projectId: 101,
       recordState: 'active',
       search: 'Ali',
@@ -87,7 +88,7 @@ describe('labourAttendanceStore', () => {
     useLabourAttendanceStore.getState().setSearch('');
     const reload = useLabourAttendanceStore.getState().loadLabours({
       page: 1,
-      perPage: 12,
+      perPage: 100,
       projectId: 101,
       recordState: 'active',
       siteId: 1002,
@@ -163,7 +164,7 @@ describe('labourAttendanceStore', () => {
     );
   });
 
-  it('keeps drafts after duplicate save errors and reserves bottom padding for the fixed save bar', async () => {
+  it('keeps drafts after duplicate save errors and uses a small natural list gap before the save bar', async () => {
     jest.spyOn(labourService, 'markLabourAttendance').mockRejectedValue(
       new Error('Attendance for one or more labourers is duplicated.'),
     );
@@ -188,7 +189,7 @@ describe('labourAttendanceStore', () => {
     );
     expect(labourAttendanceListContentStyle).toEqual({
       gap: 12,
-      paddingBottom: 104,
+      paddingBottom: 8,
     });
   });
 });

@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,6 +42,7 @@ export function PremiumLoginScreen() {
   const { theme } = useAppTheme();
   const passwordRef = useRef<TextInput | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const setSession = useAuthStore((state) => state.setSession);
   const {
     control,
@@ -54,6 +56,28 @@ export function PremiumLoginScreen() {
     },
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          animated: true,
+          y: 0,
+        });
+      });
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -80,7 +104,12 @@ export function PremiumLoginScreen() {
 
   return (
     <Screen
-      contentContainerStyle={styles.screen}
+      contentContainerStyle={[
+        styles.screen,
+        isKeyboardVisible
+          ? styles.screenKeyboardOpen
+          : styles.screenKeyboardClosed,
+      ]}
       scrollProps={{
         keyboardDismissMode: 'on-drag',
         keyboardShouldPersistTaps: 'handled',
@@ -202,7 +231,14 @@ const styles = StyleSheet.create({
   },
   screen: {
     flexGrow: 1,
-    paddingBottom: 80,
+    paddingBottom: 32,
+  },
+  screenKeyboardClosed: {
+    justifyContent: 'center',
+  },
+  screenKeyboardOpen: {
+    justifyContent: 'flex-start',
+    paddingBottom: 96,
     paddingTop: 8,
   },
   signInButton: {

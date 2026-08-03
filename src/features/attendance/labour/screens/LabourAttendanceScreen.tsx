@@ -30,12 +30,9 @@ import { formatLabourAttendanceDate } from '@/features/attendance/labour/utils/l
 import {
   canMarkLabourAttendance,
   canReadLabourAttendance,
-  canUpdateSavedLabourAttendance,
 } from '@/features/attendance/labour/utils/labourAttendancePermissions';
 import { getBottomNavigationItems } from '@/features/navigation/appNavigation';
 import { useAuthStore } from '@/store/authStore';
-
-const SAVE_BAR_HEIGHT = 88;
 
 export const labourAttendanceScaffoldContentStyle = {
   paddingBottom: 0,
@@ -43,7 +40,7 @@ export const labourAttendanceScaffoldContentStyle = {
 
 export const labourAttendanceListContentStyle = {
   gap: 12,
-  paddingBottom: SAVE_BAR_HEIGHT + 16,
+  paddingBottom: 8,
 };
 
 export function LabourAttendanceScreen() {
@@ -55,7 +52,6 @@ export function LabourAttendanceScreen() {
   const role = resolvePrimaryRole(roles);
   const canRead = canReadLabourAttendance(permissions);
   const canMark = canMarkLabourAttendance(permissions);
-  const canUpdateSaved = canUpdateSavedLabourAttendance(permissions, roles);
   const sites = useLabourAttendanceStore((state) => state.sites);
   const selectedSiteId = useLabourAttendanceStore((state) => state.selectedSiteId);
   const labours = useLabourAttendanceStore((state) => state.labours);
@@ -106,7 +102,7 @@ export function LabourAttendanceScreen() {
     projects.find((project) => project.id === selectedProjectId) ?? null;
   const selectedSite =
     sites.find((site) => site.id === selectedSiteId) ?? null;
-  const currentDateLabel = formatLabourAttendanceDate(meta?.date ?? '2026-07-29');
+  const currentDateLabel = formatLabourAttendanceDate(meta?.date);
   const dirtyDrafts = Object.values(drafts).filter(
     (draft) => draft.isDirty && draft.status !== null,
   );
@@ -155,55 +151,41 @@ export function LabourAttendanceScreen() {
       return;
     }
 
-    if (currentProjectId === null) {
-      void loadSites(selectedProjectId);
-      void loadLabours({
-        page: 1,
-        perPage: 12,
-        projectId: selectedProjectId,
-        recordState: recordStateFilter,
-        search,
-        siteId: selectedSiteId ?? undefined,
-      });
-      return;
-    }
-
-    if (selectedProjectId !== currentProjectId) {
+    if (currentProjectId !== null && selectedProjectId !== currentProjectId) {
       if (dirtyDrafts.length > 0) {
         return;
       }
 
       resetLabourAttendanceState();
-      void loadSites(selectedProjectId);
-      void loadLabours({
-        page: 1,
-        perPage: 12,
-        projectId: selectedProjectId,
-        recordState: recordStateFilter,
-        search,
-      });
     }
+
+    if (currentProjectId === selectedProjectId && sites.length > 0) {
+      return;
+    }
+
+    void loadSites(selectedProjectId);
   }, [
     canRead,
     currentProjectId,
     dirtyDrafts.length,
-    loadLabours,
     loadSites,
-    recordStateFilter,
     resetLabourAttendanceState,
-    search,
     selectedProjectId,
-    selectedSiteId,
+    sites.length,
   ]);
 
   useEffect(() => {
-    if (!canRead || !selectedProjectId || currentProjectId !== selectedProjectId) {
+    if (
+      !canRead ||
+      !selectedProjectId ||
+      currentProjectId !== selectedProjectId
+    ) {
       return;
     }
 
     void loadLabours({
       page: 1,
-      perPage: 12,
+      perPage: 100,
       projectId: selectedProjectId,
       recordState: recordStateFilter,
       search,
@@ -407,12 +389,8 @@ export function LabourAttendanceScreen() {
           onEndReachedThreshold={0.25}
           renderItem={({ item }) => {
             const draft = drafts[item.id];
-            const isReadOnlySaved =
-              Boolean(item.todayAttendance) &&
-              !draft &&
-              (!canMark || !canUpdateSaved);
-            const isMarkingDisabled =
-              !selectedSite || !canMark || (isReadOnlySaved && !draft);
+            const isReadOnlySaved = Boolean(item.todayAttendance) && !draft;
+            const isMarkingDisabled = !selectedSite || !canMark || isReadOnlySaved;
 
             return (
               <LabourAttendanceCard
@@ -461,7 +439,7 @@ export function LabourAttendanceScreen() {
           ]}
         >
           <AppText variant="bodyStrong">
-            {`${dirtyDrafts.length} marked \u00B7 ${visibleCounts.unmarked} unmarked`}
+            {`${dirtyDrafts.length} changes to save`}
           </AppText>
           <Pressable
             accessibilityLabel="Save attendance"
@@ -528,7 +506,7 @@ export function LabourAttendanceScreen() {
       />
 
       <SimpleConfirmModal
-        body={`${dirtyDrafts.length} records will be saved.\n${visibleCounts.unmarked} labourers remain unmarked.`}
+        body={`${dirtyDrafts.length} records will be submitted.`}
         confirmLabel="Save attendance"
         onCancel={() => setShowSaveConfirm(false)}
         onConfirm={() => {
@@ -561,7 +539,7 @@ export function LabourAttendanceScreen() {
           void loadSites(selectedProjectId);
           void loadLabours({
             page: 1,
-            perPage: 12,
+            perPage: 100,
             projectId: selectedProjectId,
             recordState: recordStateFilter,
             search,

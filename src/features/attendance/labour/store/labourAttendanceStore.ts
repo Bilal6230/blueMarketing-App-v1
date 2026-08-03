@@ -83,6 +83,10 @@ function getLabourById(labours: LabourRecord[], labourId: number) {
   return labours.find((labour) => labour.id === labourId) ?? null;
 }
 
+function getResolvedPerPage(perPage?: number) {
+  return perPage ?? 100;
+}
+
 function createPresentDraft(labour: LabourRecord, existing?: LabourAttendanceDraft) {
   return {
     hours: existing?.hours ?? 8,
@@ -111,7 +115,7 @@ export const useLabourAttendanceStore = create<LabourAttendanceState>(
         currentFilters: {
           ...filters,
           page: filters.page ?? 1,
-          perPage: filters.perPage ?? 12,
+          perPage: getResolvedPerPage(filters.perPage),
         },
         currentProjectId: filters.projectId,
         isLoadingLabours: true,
@@ -122,14 +126,14 @@ export const useLabourAttendanceStore = create<LabourAttendanceState>(
         const result = await getLabours({
           ...filters,
           page: filters.page ?? 1,
-          perPage: filters.perPage ?? 12,
+          perPage: getResolvedPerPage(filters.perPage),
         });
 
         set({
           currentFilters: {
             ...filters,
             page: filters.page ?? 1,
-            perPage: filters.perPage ?? 12,
+            perPage: getResolvedPerPage(filters.perPage),
           },
           currentProjectId: filters.projectId,
           isLoadingLabours: false,
@@ -346,6 +350,12 @@ export const useLabourAttendanceStore = create<LabourAttendanceState>(
     updateDraft: (labourId, changes) => {
       set((state) => {
         const labour = getLabourById(state.labours, labourId);
+        const hasSavedAttendance = Boolean(labour?.todayAttendance);
+
+        if (hasSavedAttendance && !state.drafts[labourId]) {
+          return state;
+        }
+
         const currentDraft =
           state.drafts[labourId] ??
           (labour

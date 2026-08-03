@@ -254,6 +254,9 @@ export function LabourAttendanceDetailsSheet({
                 accessibilityRole="button"
                 onPress={() => {
                   if (
+                    !Number.isFinite(hours) ||
+                    !Number.isFinite(overtimeHours) ||
+                    !Number.isFinite(rate) ||
                     hours < 0 ||
                     hours > 24 ||
                     overtimeHours < 0 ||

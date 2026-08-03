@@ -94,7 +94,14 @@ type PersistedLabourAttendance = LabourTodayAttendance & {
 };
 
 const NETWORK_DELAY_MS = 140;
-const TODAY = '2026-07-29';
+
+function getTodayDateString(now: Date = new Date()) {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
 
 let persistedAttendance = new Map<string, PersistedLabourAttendance>(
   Object.entries(labourSeedTodayAttendance).map(([key, value]) => [
@@ -125,7 +132,7 @@ function getAttendanceKey(
   projectId: number,
   siteId: number,
   labourId: number,
-  date: string = TODAY,
+  date: string = getTodayDateString(),
 ) {
   return `${projectId}:${siteId}:${labourId}:${date}`;
 }
@@ -234,6 +241,7 @@ export async function getLabours(
 ): Promise<LabourListResult> {
   await delay();
 
+  const today = getTodayDateString();
   const page = filters.page ?? 1;
   const perPage = filters.perPage ?? 12;
   const search = filters.search?.trim().toLowerCase() ?? '';
@@ -251,7 +259,7 @@ export async function getLabours(
   return {
     meta: {
       currentPage: page,
-      date: TODAY,
+      date: today,
       lastPage,
       perPage,
       selectedProjectId: filters.projectId,
@@ -269,11 +277,13 @@ export async function markLabourAttendance(
 ): Promise<MarkLabourAttendanceResult> {
   await delay();
 
+  const today = getTodayDateString();
+
   if (!input.siteId) {
     throw createServiceError('Select a site before saving attendance.');
   }
 
-  if (input.date !== TODAY) {
+  if (input.date !== today) {
     throw createServiceError("Only today's labour attendance can be saved.");
   }
 
@@ -311,7 +321,10 @@ export async function markLabourAttendance(
 
     if (
       record.status === 'present' &&
-      (record.hours < 0 ||
+      (!Number.isFinite(record.hours) ||
+        !Number.isFinite(record.overtimeHours) ||
+        !Number.isFinite(record.rate) ||
+        record.hours < 0 ||
         record.hours > 24 ||
         record.overtimeHours < 0 ||
         record.overtimeHours > 24 ||
@@ -343,13 +356,13 @@ export async function markLabourAttendance(
 
   return {
     created,
-    date: TODAY,
+    date: today,
     updated,
   };
 }
 
 export function getLabourTodayDate() {
-  return TODAY;
+  return getTodayDateString();
 }
 
 export function __resetLabourAttendanceServiceData() {

@@ -10,119 +10,124 @@ import { formatPkrAmount } from '@/utils/currency';
 type FinancialSummaryCardProps = {
   item: FinancialSummaryItem;
   onPress: () => void;
+  variant: 'featured' | 'mini';
 };
 
 export function FinancialSummaryCard({
   item,
   onPress,
+  variant,
 }: FinancialSummaryCardProps) {
   const { theme } = useAppTheme();
   const formattedAmount = formatPkrAmount(item.amount);
-  const isTotalCard = item.key === 'total-cash';
+  const isFeatured = variant === 'featured';
 
   return (
     <Pressable
       accessibilityLabel={`${item.label}: ${formattedAmount}`}
       accessibilityRole="button"
+      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.cardPressable,
-        { opacity: pressed ? 0.82 : 1 },
+        isFeatured ? styles.featuredPressable : styles.miniCard,
+        { opacity: pressed ? 0.84 : 1 },
       ]}
       testID={`financial-card-${item.key}`}
     >
       <AppCard
         padding="none"
         style={[
-          styles.card,
+          isFeatured ? styles.featuredCard : styles.miniCardSurface,
           {
-            borderColor: isTotalCard
-              ? 'rgba(10, 66, 134, 0.16)'
-              : theme.component.card.defaultBorder,
+            backgroundColor: isFeatured ? theme.colors.primarySoft : theme.colors.surface,
+            borderColor: isFeatured
+              ? 'rgba(40, 120, 240, 0.18)'
+              : theme.colors.border,
           },
-          isTotalCard
-            ? {
-                backgroundColor: theme.colors.primarySoft,
-              }
-            : null,
         ]}
         surface="elevated"
       >
-        <View style={styles.leftContent}>
-          <View
-            style={[
-              styles.iconWrap,
-              {
-                backgroundColor: isTotalCard
-                  ? 'rgba(10, 66, 134, 0.14)'
-                  : theme.colors.primarySoft,
-              },
-            ]}
-          >
-            <Ionicons color={theme.colors.primary} name={item.icon} size={22} />
-          </View>
-
-          <View style={styles.cardCopy}>
-            <AppText variant="labelStrong">{item.label}</AppText>
-            <AppText color="textSecondary" numberOfLines={1} variant="caption">
-              {item.supportText}
-            </AppText>
-          </View>
+        <View
+          style={[
+            styles.iconWrap,
+            {
+              backgroundColor: isFeatured
+                ? 'rgba(40, 120, 240, 0.14)'
+                : theme.colors.surfaceMuted,
+            },
+          ]}
+        >
+          <Ionicons color={theme.colors.primary} name={item.icon} size={22} />
         </View>
 
-        <AppText
-          adjustsFontSizeToFit
-          minimumFontScale={0.72}
-          numberOfLines={1}
-          style={styles.amount}
-          variant="numericMedium"
-        >
-          {formattedAmount}
-        </AppText>
+        <View style={isFeatured ? styles.featuredCopy : styles.miniCopy}>
+          <AppText variant="labelStrong">{item.label}</AppText>
+          <AppText
+            adjustsFontSizeToFit
+            minimumFontScale={isFeatured ? 0.72 : 0.7}
+            numberOfLines={1}
+            style={isFeatured ? styles.featuredAmount : styles.miniAmount}
+            variant={isFeatured ? 'numericHero' : 'labelStrong'}
+          >
+            {formattedAmount}
+          </AppText>
+          <AppText color="textSecondary" numberOfLines={1} variant="caption">
+            {item.supportText}
+          </AppText>
+          {isFeatured && item.metaLabel ? (
+            <AppText color="textSecondary" numberOfLines={1} variant="caption">
+              {item.metaLabel}
+            </AppText>
+          ) : null}
+        </View>
       </AppCard>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  amount: {
-    flexShrink: 1,
-    fontSize: 17,
-    lineHeight: 22,
-    maxWidth: '48%',
-    textAlign: 'right',
+  featuredAmount: {
+    fontSize: 26,
+    lineHeight: 30,
   },
-  card: {
-    alignItems: 'center',
-    flexDirection: 'row',
+  featuredCard: {
     gap: 12,
-    justifyContent: 'space-between',
-    minHeight: 100,
+    minHeight: 132,
     paddingHorizontal: 16,
     paddingVertical: 16,
     width: '100%',
   },
-  cardCopy: {
-    gap: 3,
+  featuredCopy: {
+    gap: 4,
     minWidth: 0,
-    maxWidth: '100%',
   },
-  leftContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexShrink: 1,
-    gap: 12,
-    minWidth: 0,
-    width: '52%',
-  },
-  cardPressable: {
+  featuredPressable: {
     width: '100%',
   },
   iconWrap: {
     alignItems: 'center',
-    borderRadius: 14,
-    height: 48,
+    borderRadius: 16,
+    height: 44,
     justifyContent: 'center',
-    width: 48,
+    width: 44,
+  },
+  miniAmount: {
+    color: '#102033',
+    fontSize: 17,
+    lineHeight: 22,
+    marginTop: 6,
+  },
+  miniCard: {
+    flex: 1,
+    minWidth: 0,
+  },
+  miniCardSurface: {
+    gap: 10,
+    minHeight: 116,
+    padding: 14,
+  },
+  miniCopy: {
+    gap: 6,
+    minWidth: 0,
   },
 });

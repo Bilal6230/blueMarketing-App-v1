@@ -189,11 +189,21 @@ export function LabourAttendanceCard({
         <Pressable
           accessibilityLabel="Edit labour attendance details"
           accessibilityRole="button"
-          disabled={isMarkingDisabled || status === null}
+          accessibilityState={{
+            disabled: isMarkingDisabled || isReadOnlySaved || status === null,
+          }}
+          disabled={isMarkingDisabled || isReadOnlySaved || status === null}
           onPress={onEditDetails}
           style={({ pressed }) => [
             styles.linkButton,
-            { opacity: isMarkingDisabled || status === null ? 0.45 : pressed ? 0.7 : 1 },
+            {
+              opacity:
+                isMarkingDisabled || isReadOnlySaved || status === null
+                  ? 0.45
+                  : pressed
+                    ? 0.7
+                    : 1,
+            },
           ]}
         >
           <AppText color="primary" variant="labelStrong">

@@ -1,43 +1,56 @@
 export const dashboardFixtures = {
   administrator: {
     alerts: [
-      '6 approvals are waiting for action',
-      '3 low-stock items need coordination',
-      '12 lead follow-ups are overdue',
+      {
+        count: 6,
+        key: 'approvals-awaiting',
+        title: 'Approvals awaiting action',
+        tone: 'warning',
+      },
+      {
+        count: 3,
+        key: 'inventory-low-stock',
+        title: 'Low-stock items',
+        tone: 'primary',
+      },
+      {
+        count: 12,
+        key: 'overdue-follow-ups',
+        title: 'Overdue lead follow-ups',
+        tone: 'info',
+      },
     ],
     financialSummary: [
       {
+        amount: 1684602,
+        key: 'total-cash',
+        label: 'Total Cash',
+        supportText: 'Combined available balance',
+      },
+      {
         amount: 67092,
-        icon: 'wallet-outline',
+        key: 'hand-cash',
         label: 'Hand Cash',
         supportText: 'Cash currently available',
       },
       {
         amount: 1617510,
-        icon: 'business-outline',
+        key: 'bank-account',
         label: 'Bank Account',
         supportText: 'Current bank balance',
-      },
-      {
-        amount: 1684602,
-        icon: 'cash-outline',
-        label: 'Total Cash',
-        supportText: 'Combined available balance',
       },
     ],
     greeting: 'Good morning, Sana',
     metrics: [
       {
-        icon: 'shield-checkmark-outline',
+        count: 6,
         label: 'Pending approvals',
         supportText: 'Construction and sales',
-        value: '6',
       },
       {
-        icon: 'briefcase-outline',
+        count: 3,
         label: 'Inventory pressure',
-        supportText: 'Low-stock operational items',
-        value: '3',
+        supportText: 'Low-stock items',
       },
     ],
     overviewBars: [
@@ -50,9 +63,24 @@ export const dashboardFixtures = {
       'Open team status',
     ],
     recentActivity: [
-      'Manager approved revised instalment plan',
-      'Lead recovery campaign refreshed for Block B',
-      'Weekly financial summary reviewed by management',
+      {
+        category: 'Approvals',
+        id: 'activity-approvals',
+        timeLabel: 'Today',
+        title: 'Manager approved revised instalment plan',
+      },
+      {
+        category: 'CRM',
+        id: 'activity-crm',
+        timeLabel: 'Today',
+        title: 'Lead recovery campaign refreshed for Block B',
+      },
+      {
+        category: 'Finance',
+        id: 'activity-finance',
+        timeLabel: 'Today',
+        title: 'Weekly financial summary reviewed',
+      },
     ],
   },
   shared: {
