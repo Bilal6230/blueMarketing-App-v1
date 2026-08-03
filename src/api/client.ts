@@ -65,6 +65,12 @@ function shouldNotifyUnauthorized(error: ApiError, rawError: unknown) {
 }
 
 function isLoginRequest(requestUrl: string) {
-  const normalizedUrl = requestUrl.replace(/^\/+/, '');
-  return normalizedUrl === 'auth/login';
+  try {
+    const normalizedPath = new URL(requestUrl, `${env.apiBaseUrl}/`)
+      .pathname.replace(/\/+$/, '');
+
+    return /\/auth\/login$/.test(normalizedPath);
+  } catch {
+    return false;
+  }
 }

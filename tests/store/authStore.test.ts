@@ -97,6 +97,133 @@ describe('authStore', () => {
     });
   });
 
+  it('prefers a valid cached session project when the locally persisted project is stale', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      permissions: ['dashboard.view'],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(99);
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
+      .mockResolvedValue({ ok: true });
+    mockedAuthService.getCurrentSession.mockResolvedValue({
+      accessToken: 'token-2',
+      permissions: ['dashboard.view'],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledWith(
+      'token-2',
+      7,
+    );
+  });
+
+  it('retries auth/me once without project_id when a stale project returns 403 and keeps the valid session', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
+      .mockResolvedValue({ ok: true });
+    mockedAuthService.getCurrentSession
+      .mockRejectedValueOnce(
+        new ApiError({
+          errorKey: 'forbidden',
+          message: 'Forbidden.',
+          statusCode: 403,
+        }),
+      )
+      .mockResolvedValueOnce({
+        accessToken: 'token-2',
+        permissions: ['dashboard.view', 'crm.view'],
+        projects: [{ id: 11, name: 'Field Office' }],
+        roles: ['staff'],
+        selectedProjectId: null,
+        user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+      });
+
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenNthCalledWith(
+      1,
+      'token-2',
+      9,
+    );
+    expect(mockedAuthService.getCurrentSession).toHaveBeenNthCalledWith(
+      2,
+      'token-2',
+      null,
+    );
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: 'token-2',
+      permissions: ['dashboard.view', 'crm.view'],
+      projects: [{ id: 11, name: 'Field Office' }],
+      selectedProjectId: null,
+      status: 'authenticated',
+    });
+  });
+
+  it('clears the session when auth/me returns 403 again after the retry without project_id', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
+    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
+      ok: true,
+    });
+    mockedAuthService.getCurrentSession
+      .mockRejectedValueOnce(
+        new ApiError({
+          errorKey: 'forbidden',
+          message: 'Forbidden.',
+          statusCode: 403,
+        }),
+      )
+      .mockRejectedValueOnce(
+        new ApiError({
+          errorKey: 'forbidden',
+          message: 'Forbidden.',
+          statusCode: 403,
+        }),
+      );
+
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledTimes(2);
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      selectedProjectId: null,
+      status: 'unauthenticated',
+    });
+  });
+
   it('retains the cached session on temporary startup network failure', async () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
@@ -152,6 +279,7 @@ describe('authStore', () => {
 
     await useAuthStore.getState().hydrateSession();
 
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledTimes(1);
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: null,
       permissions: [],

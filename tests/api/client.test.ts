@@ -38,27 +38,36 @@ describe('apiClient unauthorized handling', () => {
   });
 
   it('does not trigger global logout for auth/login 401 responses', async () => {
-    const unauthorizedHandler = jest.fn().mockResolvedValue(undefined);
-    registerUnauthorizedHandler(unauthorizedHandler);
-    apiClient.defaults.adapter = async () => {
-      throw createUnauthorizedError('auth/login');
-    };
-
-    await expect(
-      apiClient.post(
+    await Promise.all(
+      [
         'auth/login',
-        { email: 'staff@bluemarketing.com', password: 'wrong-pass' },
-        {
-          headers: {
-            Authorization: '',
-          },
-        },
-      ),
-    ).rejects.toMatchObject({
-      errorKey: 'unauthenticated',
-      statusCode: 401,
-    });
+        '/auth/login',
+        'auth/login?query=value',
+        'https://example.com/api/v1/mobile/auth/login',
+      ].map(async (requestUrl) => {
+        const unauthorizedHandler = jest.fn().mockResolvedValue(undefined);
+        registerUnauthorizedHandler(unauthorizedHandler);
+        apiClient.defaults.adapter = async () => {
+          throw createUnauthorizedError(requestUrl);
+        };
 
-    expect(unauthorizedHandler).not.toHaveBeenCalled();
+        await expect(
+          apiClient.post(
+            requestUrl,
+            { email: 'staff@bluemarketing.com', password: 'wrong-pass' },
+            {
+              headers: {
+                Authorization: '',
+              },
+            },
+          ),
+        ).rejects.toMatchObject({
+          errorKey: 'unauthenticated',
+          statusCode: 401,
+        });
+
+        expect(unauthorizedHandler).not.toHaveBeenCalled();
+      }),
+    );
   });
 });

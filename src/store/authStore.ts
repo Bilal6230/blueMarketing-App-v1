@@ -64,6 +64,17 @@ function resolveSelectedProjectId(
     : null;
 }
 
+function resolvePreferredProjectId(
+  projects: ProjectSummary[],
+  persistedSelectedProjectId: number | null,
+  cachedSessionSelectedProjectId: number | null,
+) {
+  return (
+    resolveSelectedProjectId(projects, persistedSelectedProjectId) ??
+    resolveSelectedProjectId(projects, cachedSessionSelectedProjectId)
+  );
+}
+
 let pendingClearSession: Promise<ClearSessionResult> | null = null;
 let pendingLogout: Promise<void> | null = null;
 
@@ -130,12 +141,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    const persistedProjectId =
-      resolveSelectedProjectId(authSession.projects, selectedProjectId) ??
-      authSession.selectedProjectId;
+    const persistedProjectId = resolvePreferredProjectId(
+      authSession.projects,
+      selectedProjectId,
+      authSession.selectedProjectId,
+    );
 
     try {
-      const refreshedSession = await getCurrentSession(
+      const refreshedSession = await refreshHydratedSession(
         accessToken,
         persistedProjectId,
       );
@@ -300,3 +313,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
   },
 }));
+
+async function refreshHydratedSession(
+  accessToken: string,
+  selectedProjectId: number | null,
+) {
+  try {
+    return await getCurrentSession(accessToken, selectedProjectId);
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.statusCode === 403 &&
+      selectedProjectId !== null
+    ) {
+      logger.warn(
+        'Stored selected project was rejected during startup; retrying without project context.',
+        {
+          projectId: selectedProjectId,
+          source: 'authStore.hydrateSession',
+        },
+      );
+
+      return getCurrentSession(accessToken, null);
+    }
+
+    throw error;
+  }
+}
