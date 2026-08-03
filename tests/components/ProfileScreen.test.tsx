@@ -1,4 +1,5 @@
 import { fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { ProfileScreen } from '@/features/profile/screens/ProfileScreen';
 import { useAuthStore } from '@/store/authStore';
@@ -15,15 +16,21 @@ jest.mock('expo-router', () => ({
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.[1]?.onPress?.();
+    });
+
     useAuthStore.setState({
       accessToken: 'token',
       clearSession: jest.fn().mockResolvedValue({ ok: true }),
+      hydrateSession: jest.fn(),
+      logout: jest.fn().mockResolvedValue(undefined),
       permissions: ['profile.view'],
       projects: [{ id: 101, name: 'Blue Residency' }],
       roles: ['staff'],
       selectedProjectId: 101,
       status: 'authenticated',
-      user: { email: 'staff@bluemarketing.com', id: 2, name: 'Bilal Iqbal' },
+      user: { avatar: null, email: 'staff@bluemarketing.com', id: 2, name: 'Bilal Iqbal' },
     } as never);
   });
 
@@ -33,7 +40,7 @@ describe('ProfileScreen', () => {
     fireEvent.press(getByText('Logout').parent as never);
 
     await waitFor(() => {
-      expect(useAuthStore.getState().clearSession).toHaveBeenCalled();
+      expect(useAuthStore.getState().logout).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
     });
   });

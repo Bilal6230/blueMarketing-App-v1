@@ -50,6 +50,7 @@ describe('PremiumLoginScreen', () => {
       accessToken: null,
       clearSession: jest.fn(),
       hydrateSession: jest.fn(),
+      logout: jest.fn(),
       permissions: [],
       projects: [],
       roles: [],
@@ -95,53 +96,14 @@ describe('PremiumLoginScreen', () => {
     );
     fireEvent.changeText(
       screen.getByPlaceholderText('Enter password'),
-      'password123',
+      'secure-pass',
     );
     fireEvent.press(screen.getByTestId('login-sign-in-button'));
 
     await waitFor(() => {
       expect(mockSignIn).toHaveBeenCalledWith({
         email: 'staff@bluemarketing.com',
-        password: 'password123',
-      });
-      expect(mockSetSession).toHaveBeenCalled();
-      expect(mockReplace).toHaveBeenCalledWith('/(app)');
-    });
-  });
-
-  it('submits administrator credentials and opens the app', async () => {
-    mockSignIn.mockResolvedValue({
-      accessToken: 'admin-session-token',
-      permissions: ['dashboard.view', 'crm.view', 'profile.view'],
-      projects: [{ id: 101, name: 'Blue Residency' }],
-      roles: ['administrator'],
-      selectedProjectId: 101,
-      user: { email: 'admin@bluemarketing.com', id: 1, name: 'Sana Ahmed' },
-    });
-    mockSetSession.mockResolvedValue({ ok: true, selectedProjectId: 101 });
-
-    const screen = await renderWithTheme(<PremiumLoginScreen />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByPlaceholderText('name@bluemarketing.com'),
-      ).toBeTruthy();
-    });
-
-    fireEvent.changeText(
-      screen.getByPlaceholderText('name@bluemarketing.com'),
-      'admin@bluemarketing.com',
-    );
-    fireEvent.changeText(
-      screen.getByPlaceholderText('Enter password'),
-      'password123',
-    );
-    fireEvent.press(screen.getByTestId('login-sign-in-button'));
-
-    await waitFor(() => {
-      expect(mockSignIn).toHaveBeenCalledWith({
-        email: 'admin@bluemarketing.com',
-        password: 'password123',
+        password: 'secure-pass',
       });
       expect(mockSetSession).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/(app)');

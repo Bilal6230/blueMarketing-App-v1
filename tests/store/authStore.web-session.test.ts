@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { SECURE_STORE_KEYS } from '@/config/constants';
+import * as authService from '@/features/auth/services/authService';
 import { useAuthStore } from '@/store/authStore';
 import {
   clearSessionStorage,
@@ -16,6 +17,13 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn(),
 }));
+
+jest.mock('@/features/auth/services/authService', () => ({
+  getCurrentSession: jest.fn(),
+  signOut: jest.fn(),
+}));
+
+const mockedAuthService = jest.mocked(authService);
 
 const authSession: AuthSession = {
   accessToken: 'web-token-1',
@@ -65,6 +73,7 @@ describe('authStore web session persistence', () => {
     });
     jest.clearAllMocks();
     jest.restoreAllMocks();
+    mockedAuthService.getCurrentSession.mockResolvedValue(authSession);
 
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
@@ -109,11 +118,11 @@ describe('authStore web session persistence', () => {
       permissions: authSession.permissions,
       projects: authSession.projects,
       roles: authSession.roles,
-      selectedProjectId: 9,
+      selectedProjectId: 7,
       status: 'authenticated',
       user: authSession.user,
     });
-    expect(state.get(SECURE_STORE_KEYS.selectedProjectId)).toBe('9');
+    expect(state.get(SECURE_STORE_KEYS.selectedProjectId)).toBe('7');
 
     const logoutResult = await useAuthStore.getState().clearSession();
 

@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import type { AppApiError } from '@/api/contracts';
+import { ApiError } from '@/api/errors';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,7 +16,7 @@ export const queryClient = new QueryClient({
           return false;
         }
 
-        const apiError = error as unknown as AppApiError;
+        const apiError = error as ApiError;
         return Boolean(apiError?.retryable);
       },
     },

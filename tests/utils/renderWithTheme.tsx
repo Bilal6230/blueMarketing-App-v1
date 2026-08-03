@@ -25,7 +25,7 @@ export function ThemeWrapper({
   );
 }
 
-export async function renderWithTheme(
+export function renderWithTheme(
   ui: ReactElement,
   preference: ThemePreference = 'light',
 ) {

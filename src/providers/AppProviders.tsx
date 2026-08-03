@@ -47,6 +47,8 @@ function BootstrapGate({ children }: PropsWithChildren) {
       logger.info('Received unauthorized API response.', {
         source: 'apiClient',
       });
+
+      return useAuthStore.getState().clearSession().then(() => undefined);
     });
   }, []);
 

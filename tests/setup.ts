@@ -20,4 +20,4 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1/api/v1/mobile';
+process.env.EXPO_PUBLIC_API_BASE_URL = 'http://127.0.0.1/api/v1/mobile';

@@ -23,6 +23,7 @@ import {
 } from '@/components';
 import { AppInput } from '@/components/controls/AppInput';
 import { signIn } from '@/features/auth/services/authService';
+import { resolveLoginErrorState } from '@/features/auth/utils/loginError';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuthStore } from '@/store/authStore';
 import { testIds } from '@/utils/testIds';
@@ -93,12 +94,21 @@ export function PremiumLoginScreen() {
 
       router.replace('/(app)');
     } catch (error) {
-      setError('root', {
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Incorrect email or password',
-      });
+      const mappedErrorState = resolveLoginErrorState(error);
+
+      if (mappedErrorState.emailMessage) {
+        setError('email', { message: mappedErrorState.emailMessage });
+      }
+
+      if (mappedErrorState.passwordMessage) {
+        setError('password', { message: mappedErrorState.passwordMessage });
+      }
+
+      if (!mappedErrorState.emailMessage && !mappedErrorState.passwordMessage) {
+        setError('root', {
+          message: mappedErrorState.rootMessage ?? 'Invalid email or password.',
+        });
+      }
     }
   });
 

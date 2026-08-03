@@ -18,7 +18,7 @@ import { useAuthStore } from '@/store/authStore';
 
 export function ProfileScreen() {
   const router = useRouter();
-  const clearSession = useAuthStore((state) => state.clearSession);
+  const logout = useAuthStore((state) => state.logout);
   const roles = useAuthStore((state) => state.roles);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
   const projects = useAuthStore((state) => state.projects);
@@ -51,7 +51,7 @@ export function ProfileScreen() {
           text: 'Log out',
           onPress: () => {
             setIsLoggingOut(true);
-            void clearSession()
+            void logout()
               .then(() => {
                 router.replace('/(auth)/login');
               })
@@ -98,7 +98,7 @@ export function ProfileScreen() {
               Project
             </AppText>
             <ProjectPill
-              label={selectedProject?.name ?? 'Blue Residency'}
+              label={selectedProject?.name ?? 'No project selected'}
               onPress={
                 projects.length > 1
                   ? () => setProjectModalVisible(true)

@@ -1,23 +1,15 @@
-export type ApiSuccess<TData, TMeta = Record<string, unknown>> = {
+export type ApiFieldErrors = Record<string, string[]>;
+
+export type ApiSuccessResponse<T, M = Record<string, unknown>> = {
   status: true;
   message: string;
-  data: TData;
-  meta: TMeta;
+  data: T;
+  meta: M;
 };
 
 export type ApiErrorResponse = {
   status: false;
-  error_key?: string;
-  error?: string;
+  error_key: string;
   message: string;
-  errors?: Record<string, string[]>;
-};
-
-export type AppApiError = {
-  statusCode: number | null;
-  errorKey: string;
-  message: string;
-  validationErrors: Record<string, string[]>;
-  requestId?: string;
-  retryable: boolean;
+  errors?: ApiFieldErrors;
 };

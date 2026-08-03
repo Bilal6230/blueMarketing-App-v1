@@ -3,6 +3,7 @@ import type { ProjectSummary } from '@/types/project';
 export type AppRole = 'administrator' | 'staff';
 
 export type AuthUser = {
+  avatar?: string | null;
   email?: string | null;
   id: number;
   name: string;

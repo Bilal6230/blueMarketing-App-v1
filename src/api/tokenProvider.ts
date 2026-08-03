@@ -3,6 +3,7 @@ type UnauthorizedHandler = () => Promise<void> | void;
 
 let tokenProvider: TokenProvider = () => null;
 let unauthorizedHandler: UnauthorizedHandler | null = null;
+let pendingUnauthorizedNotification: Promise<void> | null = null;
 
 export function registerTokenProvider(provider: TokenProvider) {
   tokenProvider = provider;
@@ -18,6 +19,14 @@ export async function getAccessTokenForRequest() {
 
 export async function notifyUnauthorized() {
   if (unauthorizedHandler) {
-    await unauthorizedHandler();
+    if (!pendingUnauthorizedNotification) {
+      pendingUnauthorizedNotification = Promise.resolve(unauthorizedHandler())
+        .catch(() => undefined)
+        .finally(() => {
+          pendingUnauthorizedNotification = null;
+        });
+    }
+
+    await pendingUnauthorizedNotification;
   }
 }

@@ -28,6 +28,9 @@ export function isAuthSession(value: unknown): value is AuthSession {
       typeof session.selectedProjectId === 'number') &&
     (session.user === null ||
       (typeof session.user === 'object' &&
+        (session.user?.avatar === undefined ||
+          session.user?.avatar === null ||
+          typeof session.user?.avatar === 'string') &&
         typeof session.user?.id === 'number' &&
         typeof session.user?.name === 'string'))
   );

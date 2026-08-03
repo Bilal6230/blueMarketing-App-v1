@@ -1,94 +1,99 @@
-import type { AuthSession, AuthUser, AppRole } from '@/types/auth';
-
-const AUTH_DELAY_MS = 900;
+import { apiClient } from '@/api/client';
+import type { ApiSuccessResponse } from '@/api/contracts';
+import type { AuthSession } from '@/types/auth';
+import { mapBackendRoles } from '@/features/auth/utils/roleMapper';
+import type { ProjectSummary } from '@/types/project';
 
 export type SignInInput = {
   email: string;
   password: string;
+  project_id?: number;
 };
 
-type AccountRecord = {
-  accessTokenPrefix: string;
+type LoginResponseData = {
   permissions: string[];
-  projects: AuthSession['projects'];
-  role: AppRole;
-  selectedProjectId: number;
-  user: AuthUser;
+  projects: ProjectSummary[];
+  role_names: string[];
+  selected_project_id: number | null;
+  token: string;
+  user: {
+    avatar: string | null;
+    email: string | null;
+    id: number;
+    name: string;
+  };
 };
 
-const accountRecords: Record<string, AccountRecord> = {
-  'admin@bluemarketing.com': {
-    accessTokenPrefix: 'admin-session',
-    permissions: [
-      'approvals.view',
-      'attendance.manage',
-      'collections.view',
-      'create lead',
-      'crm.view',
-      'dashboard.view',
-      'inventory.view',
-      'profile.view',
-      'read lead',
-      'update lead',
-    ],
-    projects: [
-      { id: 101, name: 'Blue Residency' },
-      { id: 102, name: 'Blue Heights' },
-    ],
-    role: 'administrator',
-    selectedProjectId: 101,
-    user: {
-      email: 'admin@bluemarketing.com',
-      id: 1,
-      name: 'Sana Ahmed',
-    },
-  },
-  'staff@bluemarketing.com': {
-    accessTokenPrefix: 'staff-session',
-    permissions: [
-      'attendance.manage',
-      'crm.view',
-      'dashboard.view',
-      'profile.view',
-      'read lead',
-      'update lead',
-    ],
-    projects: [
-      { id: 101, name: 'Blue Residency' },
-      { id: 102, name: 'Blue Heights' },
-    ],
-    role: 'staff',
-    selectedProjectId: 101,
-    user: {
-      email: 'staff@bluemarketing.com',
-      id: 2,
-      name: 'Bilal Iqbal',
-    },
-  },
-};
+type CurrentUserResponseData = Omit<LoginResponseData, 'token'>;
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function mapAuthSession(
+  data: CurrentUserResponseData | LoginResponseData,
+  accessToken: string,
+): AuthSession {
+  return {
+    accessToken,
+    permissions: [...data.permissions],
+    projects: data.projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+    })),
+    roles: mapBackendRoles(data.role_names),
+    selectedProjectId: data.selected_project_id,
+    user: {
+      avatar: data.user.avatar,
+      email: data.user.email,
+      id: data.user.id,
+      name: data.user.name,
+    },
+  };
 }
 
-export async function signIn({
-  email,
-  password,
-}: SignInInput): Promise<AuthSession> {
-  await delay(AUTH_DELAY_MS);
+export async function signIn(input: SignInInput): Promise<AuthSession> {
+  const response = await apiClient.post<ApiSuccessResponse<LoginResponseData>>(
+    'auth/login',
+    input,
+    {
+      headers: {
+        Authorization: '',
+      },
+    },
+  );
 
-  const account = accountRecords[email.trim().toLowerCase()];
+  return mapAuthSession(response.data.data, response.data.data.token);
+}
 
-  if (!account || password !== 'password123') {
-    throw new Error('Incorrect email or password.');
-  }
+export async function getCurrentSession(
+  accessToken: string,
+  selectedProjectId?: number | null,
+): Promise<AuthSession> {
+  const response = await apiClient.get<ApiSuccessResponse<CurrentUserResponseData>>(
+    'auth/me',
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params:
+        selectedProjectId == null
+          ? undefined
+          : {
+              project_id: selectedProjectId,
+            },
+    },
+  );
 
-  return {
-    accessToken: `${account.accessTokenPrefix}-${Date.now()}`,
-    permissions: account.permissions,
-    projects: account.projects,
-    roles: [account.role],
-    selectedProjectId: account.selectedProjectId,
-    user: account.user,
-  };
+  return mapAuthSession(response.data.data, accessToken);
+}
+
+export async function signOut(accessToken?: string | null): Promise<void> {
+  await apiClient.post<ApiSuccessResponse<Record<string, never>>>(
+    'auth/logout',
+    {},
+    accessToken
+      ? {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      : undefined,
+  );
 }
