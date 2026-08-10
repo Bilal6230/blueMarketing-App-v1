@@ -12,12 +12,17 @@ import {
   Screen,
 } from '@/components';
 import { ApiError } from '@/api/errors';
-import { mapCrmFieldErrors, type CrmFormErrors } from '@/features/crm/services/crmService';
+import {
+  mapCrmFieldErrors,
+  type CrmFormErrors,
+  type LeadDetailRecord,
+  type UpdateLeadInput,
+} from '@/features/crm/services/crmService';
 import { useCrmStore } from '@/features/crm/store/crmStore';
 import { hasCrmPermission } from '@/features/crm/utils/crmPermissions';
 import { useAuthStore } from '@/store/authStore';
 
-function confirmDiscard(isDirty: boolean, onConfirm: () => void) {
+export function confirmDiscard(isDirty: boolean, onConfirm: () => void) {
   if (!isDirty) {
     onConfirm();
     return;
@@ -46,6 +51,33 @@ function combineDateAndTime(date: string, time: string) {
   }
 
   return `${date.trim()} ${time.trim()}:00`;
+}
+
+export function getInitialEditLeadFormValues(lead: LeadDetailRecord) {
+  return {
+    firstName: lead.firstName,
+    followUpDate: lead.followUp?.slice(0, 10) ?? '',
+    followUpTime: lead.followUp?.slice(11, 16) ?? '',
+    lastName: lead.lastName,
+    mobileNumber: lead.mobileNumber ?? '',
+    nicNumber: '',
+    phoneNumber: lead.phoneNumber,
+    remarks: '',
+  };
+}
+
+type EditLeadFormValues = ReturnType<typeof getInitialEditLeadFormValues>;
+
+export function buildEditLeadInput(values: EditLeadFormValues): UpdateLeadInput {
+  return {
+    firstName: values.firstName,
+    followUp: combineDateAndTime(values.followUpDate, values.followUpTime),
+    lastName: values.lastName,
+    mobileNumber: values.mobileNumber || null,
+    nicNumber: values.nicNumber.trim() || undefined,
+    phoneNumber: values.phoneNumber,
+    remarks: values.remarks.trim() || undefined,
+  };
 }
 
 export function EditLeadScreen() {
@@ -140,12 +172,61 @@ export function EditLeadScreen() {
 
   return (
     <Screen testID="lead-edit-screen">
+      <EditLeadForm
+        key={lead.id}
+        lead={lead}
+        notice={notice}
+        onCancel={() => router.back()}
+        onError={(message) => setNotice(message)}
+      />
+    </Screen>
+  );
+}
+
+type EditLeadFormProps = {
+  lead: NonNullable<ReturnType<typeof useCrmStore.getState>['detailById'][number]>;
+  notice: string | null;
+  onCancel: () => void;
+  onError: (message: string | null) => void;
+};
+
+function EditLeadForm({ lead, notice, onCancel, onError }: EditLeadFormProps) {
+  const router = useRouter();
+  const updateLeadRecord = useCrmStore((state) => state.updateLeadRecord);
+  const isMutating = useCrmStore((state) => state.isMutating);
+  const initialValues = getInitialEditLeadFormValues(lead);
+  const [firstName, setFirstName] = useState(initialValues.firstName);
+  const [lastName, setLastName] = useState(initialValues.lastName);
+  const [phoneNumber, setPhoneNumber] = useState(initialValues.phoneNumber);
+  const [mobileNumber, setMobileNumber] = useState(initialValues.mobileNumber);
+  const [nicNumber, setNicNumber] = useState(initialValues.nicNumber);
+  const [followUpDate, setFollowUpDate] = useState(initialValues.followUpDate);
+  const [followUpTime, setFollowUpTime] = useState(initialValues.followUpTime);
+  const [remarks, setRemarks] = useState(initialValues.remarks);
+  const [errors, setErrors] = useState<CrmFormErrors>({});
+  const isDirty = useMemo(
+    () =>
+      Boolean(
+        firstName !== lead.firstName ||
+          lastName !== lead.lastName ||
+          phoneNumber !== lead.phoneNumber ||
+          mobileNumber !== (lead.mobileNumber ?? '') ||
+          followUpDate !== (lead.followUp?.slice(0, 10) ?? '') ||
+          followUpTime !== (lead.followUp?.slice(11, 16) ?? '') ||
+          Boolean(remarks.trim()) ||
+          nicNumber,
+      ),
+    [firstName, followUpDate, followUpTime, lastName, lead, mobileNumber, nicNumber, phoneNumber, remarks],
+  );
+
+  return (
+    <>
       <AppHeader
         leftAction={
           <Pressable
             accessibilityLabel="Go back"
             accessibilityRole="button"
-            onPress={() => router.back()}
+            onPress={() => confirmDiscard(isDirty, onCancel)}
           >
             <Ionicons color="#102033" name="arrow-back-outline" size={24} />
           </Pressable>
@@ -157,169 +238,134 @@ export function EditLeadScreen() {
         <InlineMessage message={notice} title="CRM" tone="warning" />
       ) : null}
 
-      <EditLeadForm
-        key={lead.id}
-        lead={lead}
-        onCancel={() => router.back()}
-        onError={(message) => setNotice(message)}
-      />
-    </Screen>
-  );
-}
-
-type EditLeadFormProps = {
-  lead: NonNullable<ReturnType<typeof useCrmStore.getState>['detailById'][number]>;
-  onCancel: () => void;
-  onError: (message: string | null) => void;
-};
-
-function EditLeadForm({ lead, onCancel, onError }: EditLeadFormProps) {
-  const router = useRouter();
-  const updateLeadRecord = useCrmStore((state) => state.updateLeadRecord);
-  const isMutating = useCrmStore((state) => state.isMutating);
-  const [firstName, setFirstName] = useState(lead.firstName);
-  const [lastName, setLastName] = useState(lead.lastName);
-  const [phoneNumber, setPhoneNumber] = useState(lead.phoneNumber);
-  const [mobileNumber, setMobileNumber] = useState(lead.mobileNumber ?? '');
-  const [nicNumber, setNicNumber] = useState('');
-  const [followUpDate, setFollowUpDate] = useState(lead.followUp?.slice(0, 10) ?? '');
-  const [followUpTime, setFollowUpTime] = useState(lead.followUp?.slice(11, 16) ?? '');
-  const [remarks, setRemarks] = useState(lead.latestRemarks ?? '');
-  const [errors, setErrors] = useState<CrmFormErrors>({});
-  const isDirty = useMemo(
-    () =>
-      Boolean(
-        firstName !== lead.firstName ||
-          lastName !== lead.lastName ||
-          phoneNumber !== lead.phoneNumber ||
-          mobileNumber !== (lead.mobileNumber ?? '') ||
-          followUpDate !== (lead.followUp?.slice(0, 10) ?? '') ||
-          followUpTime !== (lead.followUp?.slice(11, 16) ?? '') ||
-          remarks !== (lead.latestRemarks ?? '') ||
-          nicNumber,
-      ),
-    [firstName, followUpDate, followUpTime, lastName, lead, mobileNumber, nicNumber, phoneNumber, remarks],
-  );
-
-  return (
-    <AppCard surface="elevated">
-      <AppInput
-        errorText={errors.firstName}
-        label="First name"
-        onChangeText={setFirstName}
-        value={firstName}
-      />
-      <AppInput
-        errorText={errors.lastName}
-        label="Last name"
-        onChangeText={setLastName}
-        value={lastName}
-      />
-      <AppInput
-        errorText={errors.phoneNumber}
-        keyboardType="phone-pad"
-        label="Primary phone"
-        onChangeText={setPhoneNumber}
-        value={phoneNumber}
-      />
-      <AppInput
-        keyboardType="phone-pad"
-        label="Secondary phone"
-        onChangeText={setMobileNumber}
-        value={mobileNumber}
-      />
-      <AppInput
-        label="NIC"
-        onChangeText={setNicNumber}
-        value={nicNumber}
-      />
-      <AppInput
-        errorText={errors.followUp}
-        helperText="Optional, YYYY-MM-DD"
-        label="Follow-up date"
-        onChangeText={setFollowUpDate}
-        value={followUpDate}
-      />
-      <AppInput
-        errorText={errors.followUp}
-        helperText="Optional, HH:MM"
-        label="Follow-up time"
-        onChangeText={setFollowUpTime}
-        value={followUpTime}
-      />
-      <AppInput
-        helperText="Optional"
-        label="Remarks"
-        multiline
-        onChangeText={setRemarks}
-        value={remarks}
-      />
-
-      <View style={styles.actions}>
-        <AppButton
-          fullWidth={false}
-          onPress={() => confirmDiscard(isDirty, onCancel)}
-          title="Cancel"
-          variant="secondary"
+      <AppCard surface="elevated">
+        <AppInput
+          errorText={errors.firstName}
+          label="First name"
+          onChangeText={setFirstName}
+          value={firstName}
         />
-        <AppButton
-          fullWidth={false}
-          loading={isMutating}
-          onPress={async () => {
-            const nextErrors: CrmFormErrors = {};
+        <AppInput
+          errorText={errors.lastName}
+          label="Last name"
+          onChangeText={setLastName}
+          value={lastName}
+        />
+        <AppInput
+          errorText={errors.phoneNumber}
+          keyboardType="phone-pad"
+          label="Primary phone"
+          onChangeText={setPhoneNumber}
+          value={phoneNumber}
+        />
+        <AppInput
+          keyboardType="phone-pad"
+          label="Secondary phone"
+          onChangeText={setMobileNumber}
+          value={mobileNumber}
+        />
+        <AppInput
+          helperText={
+            lead.nicNumberMasked
+              ? `Current NIC: ${lead.nicNumberMasked}. Enter a new NIC only to replace it.`
+              : 'Optional'
+          }
+          label="NIC"
+          onChangeText={setNicNumber}
+          value={nicNumber}
+        />
+        <AppInput
+          errorText={errors.followUp}
+          helperText="Optional, YYYY-MM-DD"
+          label="Follow-up date"
+          onChangeText={setFollowUpDate}
+          value={followUpDate}
+        />
+        <AppInput
+          errorText={errors.followUp}
+          helperText="Optional, HH:MM"
+          label="Follow-up time"
+          onChangeText={setFollowUpTime}
+          value={followUpTime}
+        />
+        <AppInput
+          helperText="Optional"
+          label="Remarks"
+          multiline
+          onChangeText={setRemarks}
+          value={remarks}
+        />
 
-            if (!firstName.trim()) {
-              nextErrors.firstName = 'First name is required.';
-            }
+        <View style={styles.actions}>
+          <AppButton
+            fullWidth={false}
+            onPress={() => confirmDiscard(isDirty, onCancel)}
+            title="Cancel"
+            variant="secondary"
+          />
+          <AppButton
+            fullWidth={false}
+            loading={isMutating}
+            onPress={async () => {
+              const nextErrors: CrmFormErrors = {};
 
-            if (!lastName.trim()) {
-              nextErrors.lastName = 'Last name is required.';
-            }
+              if (!firstName.trim()) {
+                nextErrors.firstName = 'First name is required.';
+              }
 
-            if (!phoneNumber.trim()) {
-              nextErrors.phoneNumber = 'Primary phone is required.';
-            }
+              if (!lastName.trim()) {
+                nextErrors.lastName = 'Last name is required.';
+              }
 
-            const followUp = combineDateAndTime(followUpDate, followUpTime);
+              if (!phoneNumber.trim()) {
+                nextErrors.phoneNumber = 'Primary phone is required.';
+              }
 
-            if ((followUpDate || followUpTime) && !followUp) {
-              nextErrors.followUp = 'Use a valid date and time.';
-            }
+              const followUp = combineDateAndTime(followUpDate, followUpTime);
 
-            setErrors(nextErrors);
+              if ((followUpDate || followUpTime) && !followUp) {
+                nextErrors.followUp = 'Use a valid date and time.';
+              }
 
-            if (Object.keys(nextErrors).length > 0) {
-              return;
-            }
+              setErrors(nextErrors);
 
-            try {
-              const updatedLead = await updateLeadRecord(lead.id, {
-                firstName,
-                followUp,
-                lastName,
-                mobileNumber: mobileNumber || null,
-                nicNumber: nicNumber || null,
-                phoneNumber,
-                remarks: remarks || null,
-              });
-
-              router.replace({
-                params: { leadId: String(updatedLead.id), notice: 'Lead updated.' },
-                pathname: '/(app)/lead-detail',
-              });
-            } catch (error) {
-              if (error instanceof ApiError && error.statusCode === 422) {
-                setErrors(mapCrmFieldErrors(error.fieldErrors));
+              if (Object.keys(nextErrors).length > 0) {
                 return;
               }
 
-              onError('Unable to update the lead.');
-            }
-          }}
-          title="Save changes"
-        />
-      </View>
-    </AppCard>
+              try {
+                const updatedLead = await updateLeadRecord(
+                  lead.id,
+                  buildEditLeadInput({
+                    firstName,
+                    followUpDate,
+                    followUpTime,
+                    lastName,
+                    mobileNumber,
+                    nicNumber,
+                    phoneNumber,
+                    remarks,
+                  }),
+                );
+
+                router.replace({
+                  params: { leadId: String(updatedLead.id), notice: 'Lead updated.' },
+                  pathname: '/(app)/lead-detail',
+                });
+              } catch (error) {
+                if (error instanceof ApiError && error.statusCode === 422) {
+                  setErrors(mapCrmFieldErrors(error.fieldErrors));
+                  return;
+                }
+
+                onError('Unable to update the lead.');
+              }
+            }}
+            title="Save changes"
+          />
+        </View>
+      </AppCard>
+    </>
   );
 }
 

@@ -101,6 +101,53 @@ describe('crmStore', () => {
     expect(useCrmStore.getState().leads.map((lead) => lead.id)).toEqual([1, 2, 3]);
   });
 
+  it('retries the same next page after a failed append request', async () => {
+    const pageTwoError = new ApiError({
+      errorKey: 'server_error',
+      message: 'Unable to load CRM right now. Try again.',
+      retryable: true,
+      statusCode: 500,
+    });
+
+    mockedGetLeads
+      .mockResolvedValueOnce({
+        data: [createLeadListRecord(1)],
+        meta: {
+          currentPage: 1,
+          lastPage: 2,
+          perPage: 20,
+          total: 2,
+        },
+      })
+      .mockRejectedValueOnce(pageTwoError)
+      .mockResolvedValueOnce({
+        data: [createLeadListRecord(2)],
+        meta: {
+          currentPage: 2,
+          lastPage: 2,
+          perPage: 20,
+          total: 2,
+        },
+      });
+
+    await useCrmStore.getState().loadLeads(101, defaultCrmFilters, { page: 1, perPage: 20 });
+    await useCrmStore.getState().loadNextLeadsPage();
+
+    expect(useCrmStore.getState().leads.map((lead) => lead.id)).toEqual([1]);
+    expect(useCrmStore.getState().meta?.currentPage).toBe(1);
+    expect(useCrmStore.getState().currentPagination.page).toBe(1);
+
+    await useCrmStore.getState().loadNextLeadsPage();
+
+    expect(mockedGetLeads).toHaveBeenNthCalledWith(
+      3,
+      101,
+      defaultCrmFilters,
+      { page: 2, perPage: 20 },
+    );
+    expect(useCrmStore.getState().leads.map((lead) => lead.id)).toEqual([1, 2]);
+  });
+
   it('resets to page 1 when filters change', async () => {
     mockedGetLeads.mockResolvedValue({
       data: [createLeadListRecord(1)],
@@ -291,17 +338,27 @@ describe('crmStore', () => {
     expect(useCrmStore.getState().isMutating).toBe(false);
   });
 
-  it('refreshes real detail, history, list, and summary after create, update, and follow-up', async () => {
-    mockedGetLeads.mockResolvedValue({
-      data: [createLeadListRecord(1)],
-      meta: {
-        currentPage: 1,
-        lastPage: 1,
-        perPage: 20,
-        total: 1,
-      },
-    });
-    await useCrmStore.getState().loadLeads(101, defaultCrmFilters, { page: 1, perPage: 20 });
+  it('refreshes page 1 list data and summary after create, update, and follow-up mutations', async () => {
+    mockedGetLeads
+      .mockResolvedValueOnce({
+        data: [createLeadListRecord(21)],
+        meta: {
+          currentPage: 2,
+          lastPage: 2,
+          perPage: 20,
+          total: 21,
+        },
+      })
+      .mockResolvedValue({
+        data: [createLeadListRecord(1)],
+        meta: {
+          currentPage: 1,
+          lastPage: 2,
+          perPage: 20,
+          total: 21,
+        },
+      });
+    await useCrmStore.getState().loadLeads(101, defaultCrmFilters, { page: 2, perPage: 20 });
 
     mockedCreateLead.mockResolvedValue({ id: 5 });
     mockedGetLead.mockResolvedValue(createLeadDetailRecord(5));
@@ -330,6 +387,13 @@ describe('crmStore', () => {
       }),
     ).resolves.toMatchObject({ id: 5 });
     expect(mockedGetLead).toHaveBeenCalledWith(5);
+    expect(mockedGetLeads).toHaveBeenNthCalledWith(
+      2,
+      101,
+      defaultCrmFilters,
+      { page: 1, perPage: 20 },
+    );
+    expect(useCrmStore.getState().currentPagination.page).toBe(1);
 
     mockedUpdateLead.mockResolvedValue({ id: 5 });
     await expect(
@@ -344,6 +408,12 @@ describe('crmStore', () => {
       }),
     ).resolves.toMatchObject({ id: 5 });
     expect(mockedGetHistory).toHaveBeenCalledWith(5);
+    expect(mockedGetLeads).toHaveBeenNthCalledWith(
+      3,
+      101,
+      defaultCrmFilters,
+      { page: 1, perPage: 20 },
+    );
 
     mockedUpdateFollowUp.mockResolvedValue({ id: 5 });
     await expect(
@@ -354,6 +424,11 @@ describe('crmStore', () => {
       }),
     ).resolves.toMatchObject({ id: 5 });
     expect(mockedGetSummary).toHaveBeenCalled();
-    expect(mockedGetLeads).toHaveBeenCalled();
+    expect(mockedGetLeads).toHaveBeenNthCalledWith(
+      4,
+      101,
+      defaultCrmFilters,
+      { page: 1, perPage: 20 },
+    );
   });
 });

@@ -131,7 +131,10 @@ export const useCrmStore = create<CrmState>((set, get) => {
     await get().loadLeads(
       state.currentProjectId,
       state.currentFilters,
-      state.currentPagination,
+      {
+        page: 1,
+        perPage: state.meta?.perPage ?? state.currentPagination.perPage,
+      },
     );
   }
 
@@ -266,7 +269,6 @@ export const useCrmStore = create<CrmState>((set, get) => {
 
       set((currentState) => ({
         currentFilters: nextFilters,
-        currentPagination: nextPagination,
         currentProjectId: projectId,
         isLoadingLeads: !appendResults,
         isLoadingMoreLeads: appendResults,
@@ -292,6 +294,10 @@ export const useCrmStore = create<CrmState>((set, get) => {
         }
 
         set((currentState) => ({
+          currentPagination: {
+            page: leadResponse.meta.currentPage,
+            perPage: leadResponse.meta.perPage,
+          },
           isLoadingLead: currentState.isLoadingLead,
           leads: appendResults
             ? dedupeLeadsById([...currentState.leads, ...leadResponse.data])
@@ -325,14 +331,14 @@ export const useCrmStore = create<CrmState>((set, get) => {
         state.isLoadingMoreLeads ||
         !state.currentProjectId ||
         !state.meta ||
-        state.currentPagination.page >= state.meta.lastPage
+        state.meta.currentPage >= state.meta.lastPage
       ) {
         return;
       }
 
       await get().loadLeads(state.currentProjectId, state.currentFilters, {
-        page: state.currentPagination.page + 1,
-        perPage: state.currentPagination.perPage,
+        page: state.meta.currentPage + 1,
+        perPage: state.meta.perPage,
       });
     },
     loadSummary: async (projectId) => {

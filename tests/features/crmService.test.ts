@@ -7,6 +7,7 @@ import {
   getLead,
   getLeads,
   getSummary,
+  mapCrmFieldErrors,
   updateFollowUp,
   updateLead,
 } from '@/features/crm/services/crmService';
@@ -240,7 +241,7 @@ describe('crmService', () => {
     });
   });
 
-  it('maps detail and history responses without inventing email or fake history rows', async () => {
+  it('maps detail and history responses using the real backend contract', async () => {
     mockedApiClient.get
       .mockResolvedValueOnce({
         data: {
@@ -251,9 +252,9 @@ describe('crmService', () => {
             follow_up: '2026-08-11 10:00:00',
             id: 51,
             last_name: 'Shah',
-            latest_remarks: 'Call again tomorrow.',
+            remarks: 'Call again tomorrow.',
             mobile_number: null,
-            nic_number: '3520211111111',
+            nic_number_masked: '*********1111',
             phone_number: '03005556677',
             project: { id: 101, name: 'Blue Residency' },
             status: 'inactive',
@@ -368,9 +369,7 @@ describe('crmService', () => {
         follow_up: null,
         last_name: 'Shah',
         mobile_number: '03001234567',
-        nic_number: null,
         phone_number: '03005556677',
-        remarks: null,
       },
     ]);
     expect(mockedApiClient.post.mock.calls[1]).toEqual([
@@ -381,6 +380,62 @@ describe('crmService', () => {
         status: 2,
       },
     ]);
+  });
+
+  it('omits nic_number and remarks from update requests when the user leaves them blank', async () => {
+    mockedApiClient.put.mockResolvedValue({ data: { data: {} } } as never);
+
+    await updateLead(501, {
+      firstName: 'Adeel',
+      followUp: null,
+      lastName: 'Shah',
+      mobileNumber: null,
+      nicNumber: undefined,
+      phoneNumber: '03005556677',
+      remarks: undefined,
+    });
+
+    expect(mockedApiClient.put).toHaveBeenCalledWith('crm/leads/501', {
+      first_name: 'Adeel',
+      follow_up: null,
+      last_name: 'Shah',
+      mobile_number: null,
+      phone_number: '03005556677',
+    });
+  });
+
+  it('sends nic_number and remarks when the user explicitly enters new values', async () => {
+    mockedApiClient.put.mockResolvedValue({ data: { data: {} } } as never);
+
+    await updateLead(501, {
+      firstName: 'Adeel',
+      followUp: null,
+      lastName: 'Shah',
+      mobileNumber: null,
+      nicNumber: ' 3520211111111 ',
+      phoneNumber: '03005556677',
+      remarks: ' New remark ',
+    });
+
+    expect(mockedApiClient.put).toHaveBeenCalledWith('crm/leads/501', {
+      first_name: 'Adeel',
+      follow_up: null,
+      last_name: 'Shah',
+      mobile_number: null,
+      nic_number: '3520211111111',
+      phone_number: '03005556677',
+      remarks: 'New remark',
+    });
+  });
+
+  it('maps follow_up_date validation errors into the existing follow-up form field bucket', () => {
+    expect(
+      mapCrmFieldErrors({
+        follow_up_date: ['Use a valid follow-up date.'],
+      }),
+    ).toEqual({
+      followUp: 'Use a valid follow-up date.',
+    });
   });
 
   it('passes through ApiError responses for validation and not-found cases', async () => {

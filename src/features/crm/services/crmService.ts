@@ -95,9 +95,9 @@ export type UpdateLeadInput = {
   followUp: string | null;
   lastName: string;
   mobileNumber: string | null;
-  nicNumber: string | null;
+  nicNumber?: string | null;
   phoneNumber: string;
-  remarks: string | null;
+  remarks?: string | null;
 };
 
 export type UpdateFollowUpInput = {
@@ -130,9 +130,8 @@ type BackendLeadListDto = {
 };
 
 type BackendLeadDetailDto = BackendLeadListDto & {
-  latest_remarks: string | null;
-  nic_number?: string | null;
-  nic_number_masked?: string | null;
+  nic_number_masked: string | null;
+  remarks: string | null;
   updated_at: string | null;
 };
 
@@ -184,7 +183,15 @@ type BackendCreateLeadRequestDto = {
   remarks: string | null;
 };
 
-type BackendUpdateLeadRequestDto = Omit<BackendCreateLeadRequestDto, 'project_id'>;
+type BackendUpdateLeadRequestDto = {
+  first_name: string;
+  follow_up: string | null;
+  last_name: string;
+  mobile_number: string | null;
+  nic_number?: string;
+  phone_number: string;
+  remarks?: string;
+};
 
 type CrmListParams = {
   assigned_user_id?: number;
@@ -217,6 +224,7 @@ type BuiltLeadListParams =
 const FIELD_ERROR_MAP = {
   first_name: 'firstName',
   follow_up: 'followUp',
+  follow_up_date: 'followUp',
   last_name: 'lastName',
   mobile_number: 'mobileNumber',
   nic_number: 'nicNumber',
@@ -317,21 +325,6 @@ function trimToNullable(value: string | null | undefined) {
   return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
-function maskNicNumber(nicNumber: string | null) {
-  if (!nicNumber) {
-    return null;
-  }
-
-  if (nicNumber.includes('*')) {
-    return nicNumber;
-  }
-
-  const visible = nicNumber.slice(-4);
-  const maskedLength = Math.max(nicNumber.length - 4, 5);
-
-  return `${'*'.repeat(maskedLength)}${visible}`;
-}
-
 function mapAssignedUser(
   assignedUser: BackendAssignedUserDto | null,
 ): AssignedUser | null {
@@ -370,8 +363,8 @@ function mapLeadListRecord(lead: BackendLeadListDto): LeadListRecord {
 function mapLeadDetailRecord(lead: BackendLeadDetailDto): LeadDetailRecord {
   return {
     ...mapLeadListRecord(lead),
-    latestRemarks: lead.latest_remarks,
-    nicNumberMasked: lead.nic_number_masked ?? maskNicNumber(lead.nic_number ?? null),
+    latestRemarks: lead.remarks,
+    nicNumberMasked: lead.nic_number_masked,
     updatedAt: lead.updated_at,
   };
 }
@@ -460,15 +453,25 @@ function toCreateLeadRequest(input: CreateLeadInput): BackendCreateLeadRequestDt
 }
 
 function toUpdateLeadRequest(input: UpdateLeadInput): BackendUpdateLeadRequestDto {
-  return {
+  const nicNumber = trimToNullable(input.nicNumber);
+  const remarks = trimToNullable(input.remarks);
+  const request: BackendUpdateLeadRequestDto = {
     first_name: input.firstName.trim(),
     follow_up: trimToNullable(input.followUp),
     last_name: input.lastName.trim(),
     mobile_number: trimToNullable(input.mobileNumber),
-    nic_number: trimToNullable(input.nicNumber),
     phone_number: input.phoneNumber.trim(),
-    remarks: trimToNullable(input.remarks),
   };
+
+  if (nicNumber) {
+    request.nic_number = nicNumber;
+  }
+
+  if (remarks) {
+    request.remarks = remarks;
+  }
+
+  return request;
 }
 
 function toUpdateFollowUpRequest(
