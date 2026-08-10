@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
@@ -14,8 +14,9 @@ import {
   InlineMessage,
   Screen,
 } from '@/components';
+import { ApiError } from '@/api/errors';
 import { UpdateFollowUpSheet } from '@/features/crm/components/UpdateFollowUpSheet';
-import { getCrmStatusLabel } from '@/features/crm/data/crmMetadata';
+import { mapCrmFieldErrors } from '@/features/crm/services/crmService';
 import { useCrmStore } from '@/features/crm/store/crmStore';
 import { hasCrmPermission } from '@/features/crm/utils/crmPermissions';
 import {
@@ -71,11 +72,14 @@ export function LeadDetailScreen() {
   const loadLeadHistory = useCrmStore((state) => state.loadLeadHistory);
   const detailById = useCrmStore((state) => state.detailById);
   const historyByLeadId = useCrmStore((state) => state.historyByLeadId);
+  const historyErrorByLeadId = useCrmStore((state) => state.historyErrorByLeadId);
   const isLoadingLead = useCrmStore((state) => state.isLoadingLead);
   const isMutating = useCrmStore((state) => state.isMutating);
+  const leadError = useCrmStore((state) => state.leadError);
   const updateLeadFollowUp = useCrmStore((state) => state.updateLeadFollowUp);
   const lead = detailById[leadId] ?? null;
   const history = historyByLeadId[leadId] ?? [];
+  const historyError = historyErrorByLeadId[leadId] ?? null;
   const [notice, setNotice] = useState<string | null>(
     typeof params.notice === 'string' ? params.notice : null,
   );
@@ -94,15 +98,6 @@ export function LeadDetailScreen() {
     void loadLeadDetail(leadId);
     void loadLeadHistory(leadId);
   }, [leadId, loadLeadDetail, loadLeadHistory]);
-
-  useEffect(() => {
-    if (!lead) {
-      return;
-    }
-
-    setFollowUpDate(toDateInput(lead.followUp));
-    setFollowUpTime(toTimeInput(lead.followUp));
-  }, [lead]);
 
   const followUpTiming = useMemo(
     () => getFollowUpTiming(lead?.followUp ?? null),
@@ -130,7 +125,24 @@ export function LeadDetailScreen() {
     return (
       <Screen testID="lead-detail-screen">
         <AppHeader leftAction={<BackButton />} title="Lead detail" />
-        <EmptyState subtitle="This lead could not be found." title="Lead unavailable" />
+        {leadError?.statusCode === 403 ? (
+          <EmptyState
+            subtitle="CRM access is not available for this account."
+            title="CRM unavailable"
+          />
+        ) : leadError?.statusCode === 404 ? (
+          <EmptyState subtitle="This lead could not be found." title="Lead unavailable" />
+        ) : (
+          <EmptyState
+            actionLabel="Try again"
+            onPressAction={() => {
+              void loadLeadDetail(leadId);
+              void loadLeadHistory(leadId);
+            }}
+            subtitle="Unable to load CRM right now. Try again."
+            title="CRM unavailable"
+          />
+        )}
       </Screen>
     );
   }
@@ -165,6 +177,13 @@ export function LeadDetailScreen() {
 
       {notice ? (
         <InlineMessage message={notice} title="CRM" tone="information" />
+      ) : null}
+      {historyError ? (
+        <InlineMessage
+          message="Unable to load follow-up history right now."
+          title="CRM"
+          tone="warning"
+        />
       ) : null}
 
       <AppCard style={styles.identityPanel} surface="elevated">
@@ -216,7 +235,14 @@ export function LeadDetailScreen() {
           <AppButton
             fullWidth={false}
             leadingIcon="time-outline"
-            onPress={() => setFollowUpVisible(true)}
+            onPress={() => {
+              setFollowUpDate(toDateInput(lead.followUp));
+              setFollowUpTime(toTimeInput(lead.followUp));
+              setRemarks('');
+              setSelectedStatus(null);
+              setErrors({});
+              setFollowUpVisible(true);
+            }}
             title="Update follow-up"
             variant="secondary"
           />
@@ -383,21 +409,29 @@ export function LeadDetailScreen() {
             return;
           }
 
-          const updatedLead = await updateLeadFollowUp(lead.id, {
-            followUpDate: followUpDateTime,
-            remarks: remarks.trim() || null,
-            status: selectedStatus as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | null,
-          });
+          try {
+            await updateLeadFollowUp(lead.id, {
+              followUpDate: followUpDateTime,
+              remarks: remarks.trim() || null,
+              status: selectedStatus as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | null,
+            });
 
-          if (!updatedLead) {
+            setFollowUpVisible(false);
+            setRemarks('');
+            setErrors({});
+            setNotice('Follow-up updated.');
+          } catch (error) {
+            if (error instanceof ApiError && error.statusCode === 422) {
+              const fieldErrors = mapCrmFieldErrors(error.fieldErrors);
+              setErrors({
+                followUpDate: fieldErrors.followUp,
+                followUpTime: fieldErrors.followUp,
+              });
+              return;
+            }
+
             setNotice('Unable to update the follow-up.');
-            return;
           }
-
-          setFollowUpVisible(false);
-          setRemarks('');
-          setErrors({});
-          setNotice('Follow-up updated.');
         }}
       />
     </Screen>

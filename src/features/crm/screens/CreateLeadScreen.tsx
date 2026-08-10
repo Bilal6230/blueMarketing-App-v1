@@ -13,6 +13,8 @@ import {
   ProjectPill,
   Screen,
 } from '@/components';
+import { ApiError } from '@/api/errors';
+import { mapCrmFieldErrors, type CrmFormErrors } from '@/features/crm/services/crmService';
 import { useCrmStore } from '@/features/crm/store/crmStore';
 import { hasCrmPermission } from '@/features/crm/utils/crmPermissions';
 import { useAuthStore } from '@/store/authStore';
@@ -58,7 +60,7 @@ export function CreateLeadScreen() {
   const project = useMemo(
     () =>
       projects.find((item) => item.id === selectedProjectId) ??
-      projects[0] ??
+      (projects.length === 1 ? projects[0] : null) ??
       null,
     [projects, selectedProjectId],
   );
@@ -71,7 +73,7 @@ export function CreateLeadScreen() {
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
   const [remarks, setRemarks] = useState('');
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<CrmFormErrors>({});
   const canCreateLead = hasCrmPermission(permissions, 'create lead');
   const isDirty = Boolean(
     firstName || lastName || phoneNumber || mobileNumber || nicNumber || followUpDate || followUpTime || remarks,
@@ -119,6 +121,13 @@ export function CreateLeadScreen() {
       {notice ? (
         <InlineMessage message={notice} title="CRM" tone="warning" />
       ) : null}
+      {!project ? (
+        <InlineMessage
+          message="Select a project before creating a lead."
+          title="CRM"
+          tone="warning"
+        />
+      ) : null}
 
       <AppCard surface="elevated">
         <View style={styles.formHeader}>
@@ -157,12 +166,14 @@ export function CreateLeadScreen() {
           value={nicNumber}
         />
         <AppInput
+          errorText={errors.followUp}
           helperText="Optional, YYYY-MM-DD"
           label="Initial follow-up date"
           onChangeText={setFollowUpDate}
           value={followUpDate}
         />
         <AppInput
+          errorText={errors.followUp}
           helperText="Optional, HH:MM"
           label="Initial follow-up time"
           onChangeText={setFollowUpTime}
@@ -187,7 +198,7 @@ export function CreateLeadScreen() {
             fullWidth={false}
             loading={isMutating}
             onPress={async () => {
-              const nextErrors: Record<string, string> = {};
+              const nextErrors: CrmFormErrors = {};
 
               if (!firstName.trim()) {
                 nextErrors.firstName = 'First name is required.';
@@ -204,7 +215,7 @@ export function CreateLeadScreen() {
               const followUp = combineDateAndTime(followUpDate, followUpTime);
 
               if ((followUpDate || followUpTime) && !followUp) {
-                nextErrors.followUpDate = 'Use a valid date and time.';
+                nextErrors.followUp = 'Use a valid date and time.';
               }
 
               setErrors(nextErrors);
@@ -213,26 +224,30 @@ export function CreateLeadScreen() {
                 return;
               }
 
-              const createdLead = await createLeadRecord({
-                firstName,
-                followUp,
-                lastName,
-                mobileNumber: mobileNumber || null,
-                nicNumber: nicNumber || null,
-                phoneNumber,
-                projectId: project.id,
-                remarks: remarks || null,
-              });
+              try {
+                const createdLead = await createLeadRecord({
+                  firstName,
+                  followUp,
+                  lastName,
+                  mobileNumber: mobileNumber || null,
+                  nicNumber: nicNumber || null,
+                  phoneNumber,
+                  projectId: project.id,
+                  remarks: remarks || null,
+                });
 
-              if (!createdLead) {
+                router.replace({
+                  params: { leadId: String(createdLead.id), notice: 'Lead created.' },
+                  pathname: '/(app)/lead-detail',
+                });
+              } catch (error) {
+                if (error instanceof ApiError && error.statusCode === 422) {
+                  setErrors(mapCrmFieldErrors(error.fieldErrors));
+                  return;
+                }
+
                 setNotice('Unable to create the lead.');
-                return;
               }
-
-              router.replace({
-                params: { leadId: String(createdLead.id), notice: 'Lead created.' },
-                pathname: '/(app)/lead-detail',
-              });
             }}
             title="Create lead"
           />

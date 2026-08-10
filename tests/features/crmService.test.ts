@@ -1,5 +1,6 @@
+import { ApiError } from '@/api/errors';
+import { apiClient } from '@/api/client';
 import {
-  __resetCrmServiceData,
   createLead,
   defaultCrmFilters,
   getHistory,
@@ -7,145 +8,410 @@ import {
   getLeads,
   getSummary,
   updateFollowUp,
+  updateLead,
 } from '@/features/crm/services/crmService';
-import {
-  formatLeadFollowUpLabel,
-  getFollowUpTiming,
-} from '@/features/crm/utils/crmSelectors';
+
+jest.mock('@/api/client', () => ({
+  apiClient: {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+  },
+}));
+
+const mockedApiClient = jest.mocked(apiClient);
 
 describe('crmService', () => {
   beforeEach(() => {
-    __resetCrmServiceData();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-10T09:00:00'));
   });
 
-  it('uses API-shaped lead records without email fields', async () => {
-    const { data } = await getLeads(101, defaultCrmFilters, { page: 1, perPage: 20 });
-    const detail = await getLead(1011);
-
-    expect(data[0]).not.toHaveProperty('email');
-    expect(detail).not.toHaveProperty('email');
-    expect(detail).toHaveProperty('nicNumberMasked');
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  it('search matches name and phone', async () => {
-    const byName = await getLeads(
+  it('sends project_id to crm/summary and maps snake_case summary fields', async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        data: {
+          active_leads: 12,
+          completed_or_future_followups: 3,
+          overdue_followups: 2,
+          today_followups: 4,
+          total_leads: 20,
+        },
+      },
+    } as never);
+
+    await expect(getSummary(101)).resolves.toEqual({
+      activeLeads: 12,
+      overdueFollowups: 2,
+      todayFollowups: 4,
+      totalLeads: 20,
+    });
+
+    expect(mockedApiClient.get).toHaveBeenCalledWith('crm/summary', {
+      params: { project_id: 101 },
+    });
+  });
+
+  it('sends project_id and search to crm/leads and maps list/pagination data', async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: {
+        data: [
+          {
+            assigned_user: { id: 9, name: 'Sana Ahmed' },
+            created_at: '2026-08-10 09:15:00',
+            first_name: 'Bilal',
+            follow_up: '2026-08-12 11:30:00',
+            id: 11,
+            last_name: 'Iqbal',
+            mobile_number: '03001234567',
+            phone_number: '03001112233',
+            project: { id: 101, name: 'Blue Residency' },
+            status: 'active',
+          },
+        ],
+        meta: {
+          current_page: 2,
+          last_page: 4,
+          per_page: 20,
+          selected_project_id: 101,
+          total: 77,
+        },
+      },
+    } as never);
+
+    const result = await getLeads(
       101,
       { ...defaultCrmFilters, search: 'Bilal' },
-      { page: 1, perPage: 20 },
-    );
-    const byPhone = await getLeads(
-      101,
-      { ...defaultCrmFilters, search: '03001112251' },
-      { page: 1, perPage: 20 },
+      { page: 2, perPage: 20 },
     );
 
-    expect(byName.data.map((lead) => lead.id)).toEqual([1011]);
-    expect(byPhone.data.map((lead) => lead.id)).toEqual([1012]);
-  });
-
-  it('quick filters represent follow-up timing and overdue is derived from follow-up date', async () => {
-    const today = await getLeads(
-      101,
-      { ...defaultCrmFilters, quickFilter: 'today' },
-      { page: 1, perPage: 20 },
-    );
-    const overdue = await getLeads(
-      101,
-      { ...defaultCrmFilters, quickFilter: 'overdue' },
-      { page: 1, perPage: 20 },
-    );
-    const upcoming = await getLeads(
-      101,
-      { ...defaultCrmFilters, quickFilter: 'upcoming' },
-      { page: 1, perPage: 20 },
-    );
-
-    expect(today.data.map((lead) => lead.id)).toEqual([1011]);
-    expect(overdue.data.map((lead) => lead.id)).toEqual([1012]);
-    expect(upcoming.data.map((lead) => lead.id)).toEqual([1013]);
-    expect(getFollowUpTiming('2026-07-28 11:00:00', new Date('2026-07-29T09:00:00'))).toBe('overdue');
-    expect(formatLeadFollowUpLabel('2026-07-28 11:00:00', new Date('2026-07-29T09:00:00'))).toMatch(/Overdue by 1 day/i);
-  });
-
-  it('keeps active or inactive as a separate record state from follow-up timing', async () => {
-    const active = await getLeads(
-      101,
-      { ...defaultCrmFilters, recordState: 'active' },
-      { page: 1, perPage: 20 },
-    );
-    const inactive = await getLeads(
-      102,
-      { ...defaultCrmFilters, recordState: 'inactive' },
-      { page: 1, perPage: 20 },
-    );
-
-    expect(active.data.every((lead) => lead.recordState === 'active')).toBe(true);
-    expect(inactive.data[0]?.recordState).toBe('inactive');
-  });
-
-  it('summary counts reflect project data and summary cards can filter list inputs', async () => {
-    const summary = await getSummary(101);
-    const overdue = await getLeads(
-      101,
-      { ...defaultCrmFilters, quickFilter: 'overdue' },
-      { page: 1, perPage: 20 },
-    );
-
-    expect(summary).toEqual({
-      activeLeads: 3,
-      overdueFollowups: 1,
-      todayFollowups: 1,
-      totalLeads: 3,
+    expect(mockedApiClient.get).toHaveBeenCalledWith('crm/leads', {
+      params: {
+        page: 2,
+        per_page: 20,
+        project_id: 101,
+        search: 'Bilal',
+        sort_by: 'follow_up',
+        sort_order: 'asc',
+      },
     });
-    expect(overdue.meta.total).toBe(summary.overdueFollowups);
+    expect(result).toEqual({
+      data: [
+        {
+          assignedUser: { id: 9, name: 'Sana Ahmed' },
+          createdAt: '2026-08-10 09:15:00',
+          firstName: 'Bilal',
+          followUp: '2026-08-12 11:30:00',
+          id: 11,
+          lastName: 'Iqbal',
+          mobileNumber: '03001234567',
+          phoneNumber: '03001112233',
+          project: { id: 101, name: 'Blue Residency' },
+          recordState: 'active',
+        },
+      ],
+      meta: {
+        currentPage: 2,
+        lastPage: 4,
+        perPage: 20,
+        total: 77,
+      },
+    });
   });
 
-  it('create lead returns API-like id and history uses API-shaped fields', async () => {
-    const created = await createLead({
+  it('maps recordState filters to backend status parameters and omits status for all', async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: { data: [], meta: { current_page: 1, last_page: 1, per_page: 20, selected_project_id: 101, total: 0 } },
+    } as never);
+
+    await getLeads(101, { ...defaultCrmFilters, recordState: 'active' }, { page: 1, perPage: 20 });
+    await getLeads(101, { ...defaultCrmFilters, recordState: 'inactive' }, { page: 1, perPage: 20 });
+    await getLeads(101, { ...defaultCrmFilters, recordState: 'all' }, { page: 1, perPage: 20 });
+
+    expect(mockedApiClient.get.mock.calls[0]?.[1]).toMatchObject({
+      params: expect.objectContaining({ status: 'active' }),
+    });
+    expect(mockedApiClient.get.mock.calls[1]?.[1]).toMatchObject({
+      params: expect.objectContaining({ status: 'inactive' }),
+    });
+    expect(mockedApiClient.get.mock.calls[2]?.[1]).toMatchObject({
+      params: expect.not.objectContaining({ status: expect.anything() }),
+    });
+  });
+
+  it('maps today, overdue, and upcoming quick filters to local date ranges', async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: { data: [], meta: { current_page: 1, last_page: 1, per_page: 20, selected_project_id: 101, total: 0 } },
+    } as never);
+
+    await getLeads(101, { ...defaultCrmFilters, quickFilter: 'today' }, { page: 1, perPage: 20 });
+    await getLeads(101, { ...defaultCrmFilters, quickFilter: 'overdue' }, { page: 1, perPage: 20 });
+    await getLeads(101, { ...defaultCrmFilters, quickFilter: 'upcoming' }, { page: 1, perPage: 20 });
+
+    expect(mockedApiClient.get.mock.calls[0]?.[1]).toMatchObject({
+      params: expect.objectContaining({
+        follow_up_from: '2026-08-10',
+        follow_up_to: '2026-08-10',
+      }),
+    });
+    expect(mockedApiClient.get.mock.calls[1]?.[1]).toMatchObject({
+      params: expect.objectContaining({
+        follow_up_to: '2026-08-09',
+      }),
+    });
+    expect(mockedApiClient.get.mock.calls[2]?.[1]).toMatchObject({
+      params: expect.objectContaining({
+        follow_up_from: '2026-08-11',
+      }),
+    });
+  });
+
+  it('intersects quick and advanced follow-up ranges and skips impossible server requests', async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: { data: [], meta: { current_page: 1, last_page: 1, per_page: 20, selected_project_id: 101, total: 0 } },
+    } as never);
+
+    await getLeads(
+      101,
+      {
+        ...defaultCrmFilters,
+        followUpFrom: '2026-08-01',
+        quickFilter: 'overdue',
+      },
+      { page: 1, perPage: 20 },
+    );
+
+    expect(mockedApiClient.get).toHaveBeenCalledWith('crm/leads', {
+      params: expect.objectContaining({
+        follow_up_from: '2026-08-01',
+        follow_up_to: '2026-08-09',
+      }),
+    });
+
+    mockedApiClient.get.mockClear();
+
+    const emptyResult = await getLeads(
+      101,
+      {
+        ...defaultCrmFilters,
+        followUpFrom: '2026-08-12',
+        quickFilter: 'overdue',
+      },
+      { page: 1, perPage: 20 },
+    );
+
+    expect(mockedApiClient.get).not.toHaveBeenCalled();
+    expect(emptyResult).toEqual({
+      data: [],
+      meta: {
+        currentPage: 1,
+        lastPage: 1,
+        perPage: 20,
+        total: 0,
+      },
+    });
+  });
+
+  it('maps sorting parameters directly', async () => {
+    mockedApiClient.get.mockResolvedValue({
+      data: { data: [], meta: { current_page: 1, last_page: 1, per_page: 20, selected_project_id: 101, total: 0 } },
+    } as never);
+
+    await getLeads(
+      101,
+      {
+        ...defaultCrmFilters,
+        sortBy: 'created_at',
+        sortOrder: 'desc',
+      },
+      { page: 1, perPage: 20 },
+    );
+
+    expect(mockedApiClient.get).toHaveBeenCalledWith('crm/leads', {
+      params: expect.objectContaining({
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      }),
+    });
+  });
+
+  it('maps detail and history responses without inventing email or fake history rows', async () => {
+    mockedApiClient.get
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            assigned_user: null,
+            created_at: '2026-08-10 09:00:00',
+            first_name: 'Adeel',
+            follow_up: '2026-08-11 10:00:00',
+            id: 51,
+            last_name: 'Shah',
+            latest_remarks: 'Call again tomorrow.',
+            mobile_number: null,
+            nic_number: '3520211111111',
+            phone_number: '03005556677',
+            project: { id: 101, name: 'Blue Residency' },
+            status: 'inactive',
+            updated_at: '2026-08-10 09:30:00',
+          },
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            {
+              call_duration: 180,
+              call_status: 2,
+              comment: 'Interested in visit.',
+              created_at: '2026-08-10 09:35:00',
+              follow_up: '2026-08-11 10:00:00',
+              id: 900,
+              user: { id: 5, name: 'Amina' },
+            },
+          ],
+        },
+      } as never)
+      .mockResolvedValueOnce({
+        data: { data: [] },
+      } as never);
+
+    const detail = await getLead(51);
+    const history = await getHistory(51);
+    const emptyHistory = await getHistory(52);
+
+    expect(detail).toEqual({
+      assignedUser: null,
+      createdAt: '2026-08-10 09:00:00',
       firstName: 'Adeel',
-      followUp: '2026-07-30 12:30:00',
+      followUp: '2026-08-11 10:00:00',
+      id: 51,
       lastName: 'Shah',
+      latestRemarks: 'Call again tomorrow.',
       mobileNumber: null,
-      nicNumber: '3520211111111',
+      nicNumberMasked: '*********1111',
       phoneNumber: '03005556677',
-      projectId: 101,
-      remarks: 'Requested a callback after lunch.',
+      project: { id: 101, name: 'Blue Residency' },
+      recordState: 'inactive',
+      updatedAt: '2026-08-10 09:30:00',
     });
-    const detail = await getLead(created.id);
-    const history = await getHistory(created.id);
-
-    expect(detail?.project.id).toBe(101);
-    expect(history[0]).toMatchObject({
-      callDuration: null,
-      callStatus: 6,
-      comment: 'Requested a callback after lunch.',
-      followUp: '2026-07-30 12:30:00',
-    });
+    expect(history).toEqual([
+      {
+        callDuration: 180,
+        callStatus: 2,
+        comment: 'Interested in visit.',
+        createdAt: '2026-08-10 09:35:00',
+        followUp: '2026-08-11 10:00:00',
+        id: 900,
+        user: { id: 5, name: 'Amina' },
+      },
+    ]);
+    expect(emptyHistory).toEqual([]);
   });
 
-  it('updateFollowUp does not require remarks and immediately affects list, detail, history and summary', async () => {
-    await updateFollowUp(1013, {
-      followUpDate: '2026-07-29 18:00:00',
-      remarks: null,
+  it('sends create, update, and follow-up requests with real backend field names', async () => {
+    mockedApiClient.post
+      .mockResolvedValueOnce({ data: { data: { id: 501 } } } as never)
+      .mockResolvedValueOnce({ data: { data: {} } } as never);
+    mockedApiClient.put.mockResolvedValue({ data: { data: {} } } as never);
+
+    await expect(
+      createLead({
+        firstName: ' Adeel ',
+        followUp: '2026-08-12 11:00:00',
+        lastName: ' Shah ',
+        mobileNumber: '',
+        nicNumber: ' ',
+        phoneNumber: ' 03005556677 ',
+        projectId: 101,
+        remarks: ' Interested ',
+      }),
+    ).resolves.toEqual({ id: 501 });
+
+    await updateLead(501, {
+      firstName: ' Adeel ',
+      followUp: null,
+      lastName: ' Shah ',
+      mobileNumber: '03001234567',
+      nicNumber: '',
+      phoneNumber: ' 03005556677 ',
+      remarks: '',
+    });
+
+    await updateFollowUp(501, {
+      followUpDate: '2026-08-13 16:00:00',
+      remarks: ' Needs callback ',
       status: 2,
     });
 
-    const detail = await getLead(1013);
-    const history = await getHistory(1013);
-    const summary = await getSummary(101);
-    const today = await getLeads(
-      101,
-      { ...defaultCrmFilters, quickFilter: 'today' },
-      { page: 1, perPage: 20 },
-    );
+    expect(mockedApiClient.post.mock.calls[0]).toEqual([
+      'crm/leads',
+      {
+        first_name: 'Adeel',
+        follow_up: '2026-08-12 11:00:00',
+        last_name: 'Shah',
+        mobile_number: null,
+        nic_number: null,
+        phone_number: '03005556677',
+        project_id: 101,
+        remarks: 'Interested',
+      },
+    ]);
+    expect(mockedApiClient.put.mock.calls[0]).toEqual([
+      'crm/leads/501',
+      {
+        first_name: 'Adeel',
+        follow_up: null,
+        last_name: 'Shah',
+        mobile_number: '03001234567',
+        nic_number: null,
+        phone_number: '03005556677',
+        remarks: null,
+      },
+    ]);
+    expect(mockedApiClient.post.mock.calls[1]).toEqual([
+      'crm/leads/501/follow-up',
+      {
+        follow_up_date: '2026-08-13 16:00:00',
+        remarks: 'Needs callback',
+        status: 2,
+      },
+    ]);
+  });
 
-    expect(detail?.followUp).toBe('2026-07-29 18:00:00');
-    expect(history[0]).toMatchObject({
-      callStatus: 2,
-      comment: null,
-      followUp: '2026-07-29 18:00:00',
+  it('passes through ApiError responses for validation and not-found cases', async () => {
+    const validationError = new ApiError({
+      errorKey: 'validation_error',
+      fieldErrors: { phone_number: ['Phone already exists.'] },
+      message: 'The given data was invalid.',
+      statusCode: 422,
     });
-    expect(summary.todayFollowups).toBe(2);
-    expect(today.data.map((lead) => lead.id)).toContain(1013);
+    const notFoundError = new ApiError({
+      errorKey: 'not_found',
+      message: 'Lead not found.',
+      statusCode: 404,
+    });
+
+    mockedApiClient.post.mockRejectedValueOnce(validationError);
+    mockedApiClient.get.mockRejectedValueOnce(notFoundError);
+
+    await expect(
+      createLead({
+        firstName: 'Adeel',
+        followUp: null,
+        lastName: 'Shah',
+        mobileNumber: null,
+        nicNumber: null,
+        phoneNumber: '03005556677',
+        projectId: 101,
+        remarks: null,
+      }),
+    ).rejects.toBe(validationError);
+
+    await expect(getLead(999)).rejects.toBe(notFoundError);
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import {
@@ -19,7 +19,6 @@ import {
   defaultCrmFilters,
   type CrmFilters,
   type CrmQuickFilter,
-  type LeadListRecord,
 } from '@/features/crm/services/crmService';
 import { useCrmStore } from '@/features/crm/store/crmStore';
 import { hasCrmPermission } from '@/features/crm/utils/crmPermissions';
@@ -83,12 +82,18 @@ export function LeadListScreen() {
   const permissions = useAuthStore((state) => state.permissions);
   const projects = useAuthStore((state) => state.projects);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
+  const user = useAuthStore((state) => state.user);
   const leads = useCrmStore((state) => state.leads);
   const summary = useCrmStore((state) => state.summary);
   const meta = useCrmStore((state) => state.meta);
   const isLoadingLeads = useCrmStore((state) => state.isLoadingLeads);
+  const isLoadingMoreLeads = useCrmStore((state) => state.isLoadingMoreLeads);
+  const leadsError = useCrmStore((state) => state.leadsError);
   const loadLeads = useCrmStore((state) => state.loadLeads);
-  const projectId = selectedProjectId ?? projects[0]?.id ?? null;
+  const loadNextLeadsPage = useCrmStore((state) => state.loadNextLeadsPage);
+  const resetCrmState = useCrmStore((state) => state.resetCrmState);
+  const projectId =
+    selectedProjectId ?? (projects.length === 1 ? projects[0]?.id ?? null : null);
   const canReadLead = hasCrmPermission(permissions, 'read lead');
   const canCreateLead = hasCrmPermission(permissions, 'create lead');
   const [searchInput, setSearchInput] = useState('');
@@ -99,10 +104,7 @@ export function LeadListScreen() {
   const [draftFilters, setDraftFilters] = useState(filters);
   const [advancedFiltersVisible, setAdvancedFiltersVisible] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDraftFilters(filters);
-  }, [filters]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -114,6 +116,10 @@ export function LeadListScreen() {
 
     return () => clearTimeout(timeoutId);
   }, [searchInput]);
+
+  useEffect(() => {
+    resetCrmState();
+  }, [resetCrmState, user?.id]);
 
   useEffect(() => {
     if (!projectId || !canReadLead) {
@@ -143,6 +149,36 @@ export function LeadListScreen() {
     );
   }
 
+  if (projects.length > 1 && projectId === null) {
+    return (
+      <AppTabScaffold
+        items={getBottomNavigationItems('staff')}
+        selectedKey="crm"
+        testID="crm-lead-list-screen"
+      >
+        <EmptyState
+          subtitle="Select a project to continue with CRM."
+          title="Project selection required"
+        />
+      </AppTabScaffold>
+    );
+  }
+
+  if (leadsError?.statusCode === 403) {
+    return (
+      <AppTabScaffold
+        items={getBottomNavigationItems('staff')}
+        selectedKey="crm"
+        testID="crm-lead-list-screen"
+      >
+        <EmptyState
+          subtitle="CRM access is not available for this account."
+          title="CRM unavailable"
+        />
+      </AppTabScaffold>
+    );
+  }
+
   return (
     <AppTabScaffold
       contentContainerStyle={styles.scaffoldContent}
@@ -156,9 +192,44 @@ export function LeadListScreen() {
         data={leads}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => String(item.id)}
+        onEndReached={() => void loadNextLeadsPage()}
+        onEndReachedThreshold={0.35}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              if (!projectId) {
+                return;
+              }
+
+              void (async () => {
+                setIsRefreshing(true);
+
+                try {
+                  await loadLeads(projectId, filters, { page: 1, perPage: 20 });
+                } finally {
+                  setIsRefreshing(false);
+                }
+              })();
+            }}
+          />
+        }
         style={styles.list}
         ListEmptyComponent={
-          isLoadingLeads ? null : (
+          isLoadingLeads ? null : leadsError ? (
+            <EmptyState
+              actionLabel="Try again"
+              onPressAction={() => {
+                if (!projectId) {
+                  return;
+                }
+
+                void loadLeads(projectId, filters, { page: 1, perPage: 20 });
+              }}
+              subtitle="Unable to load CRM right now. Try again."
+              title="CRM unavailable"
+            />
+          ) : (
             <EmptyState
               actionLabel={filters.search || activeAdvancedFilterCount > 0 ? 'Reset filters' : undefined}
               onPressAction={
@@ -189,6 +260,13 @@ export function LeadListScreen() {
                 message={notice}
                 title="CRM"
                 tone="information"
+              />
+            ) : null}
+            {leadsError && leadsError.statusCode !== 403 ? (
+              <InlineMessage
+                message="Unable to load CRM right now. Try again."
+                title="CRM"
+                tone="danger"
               />
             ) : null}
 
@@ -235,7 +313,10 @@ export function LeadListScreen() {
             <CrmQuickFilters
               activeFilterCount={activeAdvancedFilterCount}
               selectedFilter={filters.quickFilter}
-              onOpenAdvancedFilters={() => setAdvancedFiltersVisible(true)}
+              onOpenAdvancedFilters={() => {
+                setDraftFilters(filters);
+                setAdvancedFiltersVisible(true);
+              }}
               onSelectFilter={async (quickFilter) => {
                 await selectionFeedback();
                 setFilters((currentFilters) => ({
@@ -248,6 +329,11 @@ export function LeadListScreen() {
             <AppText color="textSecondary" variant="captionStrong">
               {`${meta?.total ?? leads.length} lead${(meta?.total ?? leads.length) === 1 ? '' : 's'}`}
             </AppText>
+            {isLoadingMoreLeads ? (
+              <AppText color="textSecondary" variant="caption">
+                Loading more leads...
+              </AppText>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (

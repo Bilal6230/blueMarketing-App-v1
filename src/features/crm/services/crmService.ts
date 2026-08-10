@@ -1,9 +1,9 @@
-import { createCrmSeedData } from '@/features/crm/data/crmSeed';
+import { apiClient } from '@/api/client';
+import type { ApiFieldErrors, ApiSuccessResponse } from '@/api/contracts';
 import type { CrmCallStatusId } from '@/features/crm/data/crmMetadata';
-import {
-  getFollowUpTiming,
-  type FollowUpTiming,
-  type LeadRecordState,
+import type {
+  FollowUpTiming,
+  LeadRecordState,
 } from '@/features/crm/utils/crmSelectors';
 
 export type AssignedUser = {
@@ -106,178 +106,134 @@ export type UpdateFollowUpInput = {
   status: CrmCallStatusId | null;
 };
 
-type InternalLeadRecord = ReturnType<typeof createCrmSeedData>[number];
+type BackendAssignedUserDto = {
+  id: number;
+  name: string;
+};
 
-const CRM_DELAY_MS = 120;
-let leadsDb = createCrmSeedData();
-let nextLeadId = 2000;
-let nextHistoryId = 10000;
+type BackendLeadProjectDto = {
+  id: number;
+  name: string | null;
+};
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+type BackendLeadListDto = {
+  assigned_user: BackendAssignedUserDto | null;
+  created_at: string | null;
+  first_name: string;
+  follow_up: string | null;
+  id: number;
+  last_name: string;
+  mobile_number: string | null;
+  phone_number: string;
+  project: BackendLeadProjectDto;
+  status: 'active' | 'inactive';
+};
 
-function maskNicNumber(nicNumber: string | null) {
-  if (!nicNumber) {
-    return null;
-  }
+type BackendLeadDetailDto = BackendLeadListDto & {
+  latest_remarks: string | null;
+  nic_number?: string | null;
+  nic_number_masked?: string | null;
+  updated_at: string | null;
+};
 
-  const visible = nicNumber.slice(-4);
-  const maskedLength = Math.max(nicNumber.length - 4, 5);
+type BackendLeadHistoryDto = {
+  call_duration: number | null;
+  call_status: number | null;
+  comment: string | null;
+  created_at: string | null;
+  follow_up: string | null;
+  id: number;
+  user: BackendAssignedUserDto | null;
+};
 
-  return `${'*'.repeat(maskedLength)}${visible}`;
-}
+type BackendCrmSummaryDto = {
+  active_leads: number;
+  completed_or_future_followups: number;
+  overdue_followups: number;
+  today_followups: number;
+  total_leads: number;
+};
 
-function toLeadListRecord(lead: InternalLeadRecord): LeadListRecord {
-  return {
-    assignedUser: lead.assignedUser ? { ...lead.assignedUser } : null,
-    createdAt: lead.createdAt,
-    firstName: lead.firstName,
-    followUp: lead.followUp,
-    id: lead.id,
-    lastName: lead.lastName,
-    mobileNumber: lead.mobileNumber,
-    phoneNumber: lead.phoneNumber,
-    project: { ...lead.project },
-    recordState: lead.isActive ? 'active' : 'inactive',
-  };
-}
+type BackendCrmPaginationMetaDto = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  selected_project_id: number | null;
+  total: number;
+};
 
-function toLeadDetailRecord(lead: InternalLeadRecord): LeadDetailRecord {
-  return {
-    ...toLeadListRecord(lead),
-    latestRemarks: lead.latestRemarks,
-    nicNumberMasked: maskNicNumber(lead.nicNumber),
-    updatedAt: lead.updatedAt,
-  };
-}
+type BackendCreateLeadResponseDto = {
+  id?: number;
+  lead_id?: number;
+};
 
-function cloneHistory(history: InternalLeadRecord['history']) {
-  return history.map((item) => ({
-    ...item,
-    user: item.user ? { ...item.user } : null,
-  }));
-}
+type BackendUpdateFollowUpRequestDto = {
+  follow_up_date: string;
+  remarks?: string | null;
+  status?: number | null;
+};
 
-function matchesSearch(lead: InternalLeadRecord, search: string) {
-  const normalizedSearch = search.trim().toLowerCase();
+type BackendCreateLeadRequestDto = {
+  first_name: string;
+  follow_up: string | null;
+  last_name: string;
+  mobile_number: string | null;
+  nic_number: string | null;
+  phone_number: string;
+  project_id: number;
+  remarks: string | null;
+};
 
-  if (!normalizedSearch) {
-    return true;
-  }
+type BackendUpdateLeadRequestDto = Omit<BackendCreateLeadRequestDto, 'project_id'>;
 
-  return [
-    lead.firstName,
-    lead.lastName,
-    lead.phoneNumber,
-    lead.mobileNumber ?? '',
-    lead.nicNumber ?? '',
-  ]
-    .join(' ')
-    .toLowerCase()
-    .includes(normalizedSearch);
-}
+type CrmListParams = {
+  assigned_user_id?: number;
+  follow_up_from?: string;
+  follow_up_to?: string;
+  page: number;
+  per_page: number;
+  project_id: number;
+  search?: string;
+  sort_by: CrmSortBy;
+  sort_order: CrmSortOrder;
+  status?: 'active' | 'inactive';
+};
 
-function matchesQuickFilter(lead: InternalLeadRecord, quickFilter: CrmQuickFilter) {
-  if (quickFilter === 'all') {
-    return true;
-  }
+type DateRange = {
+  from?: string;
+  to?: string;
+};
 
-  return getFollowUpTiming(lead.followUp) === quickFilter;
-}
-
-function matchesDateRange(lead: InternalLeadRecord, filters: CrmFilters) {
-  const followUp = lead.followUp ? new Date(lead.followUp.replace(' ', 'T')) : null;
-
-  if (!followUp) {
-    return !filters.followUpFrom && !filters.followUpTo;
-  }
-
-  if (filters.followUpFrom) {
-    const fromDate = new Date(`${filters.followUpFrom}T00:00:00`);
-
-    if (followUp < fromDate) {
-      return false;
+type BuiltLeadListParams =
+  | {
+      params: CrmListParams;
+      skipRequest: false;
     }
-  }
+  | {
+      params: CrmListParams;
+      skipRequest: true;
+    };
 
-  if (filters.followUpTo) {
-    const toDate = new Date(`${filters.followUpTo}T23:59:59`);
+const FIELD_ERROR_MAP = {
+  first_name: 'firstName',
+  follow_up: 'followUp',
+  last_name: 'lastName',
+  mobile_number: 'mobileNumber',
+  nic_number: 'nicNumber',
+  phone_number: 'phoneNumber',
+  remarks: 'remarks',
+} as const;
 
-    if (followUp > toDate) {
-      return false;
-    }
-  }
+export type CrmFormField =
+  | 'firstName'
+  | 'followUp'
+  | 'lastName'
+  | 'mobileNumber'
+  | 'nicNumber'
+  | 'phoneNumber'
+  | 'remarks';
 
-  return true;
-}
-
-function applyFilters(leads: InternalLeadRecord[], projectId: number, filters: CrmFilters) {
-  return leads
-    .filter((lead) => lead.project.id === projectId)
-    .filter((lead) =>
-      filters.recordState === 'all'
-        ? true
-        : filters.recordState === 'active'
-          ? lead.isActive
-          : !lead.isActive,
-    )
-    .filter((lead) => matchesQuickFilter(lead, filters.quickFilter))
-    .filter((lead) => matchesDateRange(lead, filters))
-    .filter((lead) => matchesSearch(lead, filters.search));
-}
-
-function compareValues(left: string | null, right: string | null, order: CrmSortOrder) {
-  const leftValue = left ?? '';
-  const rightValue = right ?? '';
-  const result = leftValue.localeCompare(rightValue, 'en', { sensitivity: 'base' });
-
-  return order === 'asc' ? result : result * -1;
-}
-
-function sortLeads(leads: InternalLeadRecord[], filters: CrmFilters) {
-  const sortedLeads = [...leads].sort((left, right) => {
-    if (filters.sortBy === 'created_at') {
-      return compareValues(left.createdAt, right.createdAt, filters.sortOrder);
-    }
-
-    if (filters.sortBy === 'first_name') {
-      return compareValues(left.firstName, right.firstName, filters.sortOrder);
-    }
-
-    if (filters.sortBy === 'last_name') {
-      return compareValues(left.lastName, right.lastName, filters.sortOrder);
-    }
-
-    return compareValues(left.followUp, right.followUp, filters.sortOrder);
-  });
-
-  return sortedLeads;
-}
-
-function getLeadIndex(leadId: number) {
-  return leadsDb.findIndex((lead) => lead.id === leadId);
-}
-
-function createHistoryRecord(
-  input: {
-    callDuration?: number | null;
-    callStatus?: number | null;
-    comment?: string | null;
-    followUp?: string | null;
-    user?: AssignedUser | null;
-  } = {},
-): LeadHistoryRecord {
-  return {
-    callDuration: input.callDuration ?? null,
-    callStatus: input.callStatus ?? null,
-    comment: input.comment ?? null,
-    createdAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
-    followUp: input.followUp ?? null,
-    id: nextHistoryId++,
-    user: input.user ?? null,
-  };
-}
+export type CrmFormErrors = Partial<Record<CrmFormField, string>>;
 
 export const defaultCrmFilters: CrmFilters = {
   followUpFrom: '',
@@ -289,20 +245,288 @@ export const defaultCrmFilters: CrmFilters = {
   sortOrder: 'asc',
 };
 
-export async function getSummary(projectId: number): Promise<CrmSummary> {
-  await delay(CRM_DELAY_MS);
-  const projectLeads = leadsDb.filter((lead) => lead.project.id === projectId);
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDate(base: Date, days: number) {
+  const nextDate = new Date(base);
+  nextDate.setDate(nextDate.getDate() + days);
+  return formatLocalDate(nextDate);
+}
+
+function getTodayDate(now: Date = new Date()) {
+  return formatLocalDate(now);
+}
+
+function getQuickFilterRange(
+  quickFilter: CrmQuickFilter,
+  now: Date = new Date(),
+): DateRange {
+  if (quickFilter === 'today') {
+    const today = getTodayDate(now);
+    return { from: today, to: today };
+  }
+
+  if (quickFilter === 'overdue') {
+    return { to: shiftDate(now, -1) };
+  }
+
+  if (quickFilter === 'upcoming') {
+    return { from: shiftDate(now, 1) };
+  }
+
+  return {};
+}
+
+function normalizeDateRange(filters: CrmFilters, now: Date = new Date()) {
+  const quickRange = getQuickFilterRange(filters.quickFilter, now);
+  const advancedRange: DateRange = {
+    from: filters.followUpFrom || undefined,
+    to: filters.followUpTo || undefined,
+  };
+
+  const from = [quickRange.from, advancedRange.from]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const to = [quickRange.to, advancedRange.to].filter(Boolean).sort().at(0);
+
+  if (from && to && from > to) {
+    return null;
+  }
+
+  return { from, to };
+}
+
+function trimToUndefined(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : undefined;
+}
+
+function trimToNullable(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+function maskNicNumber(nicNumber: string | null) {
+  if (!nicNumber) {
+    return null;
+  }
+
+  if (nicNumber.includes('*')) {
+    return nicNumber;
+  }
+
+  const visible = nicNumber.slice(-4);
+  const maskedLength = Math.max(nicNumber.length - 4, 5);
+
+  return `${'*'.repeat(maskedLength)}${visible}`;
+}
+
+function mapAssignedUser(
+  assignedUser: BackendAssignedUserDto | null,
+): AssignedUser | null {
+  if (!assignedUser) {
+    return null;
+  }
 
   return {
-    activeLeads: projectLeads.filter((lead) => lead.isActive).length,
-    overdueFollowups: projectLeads.filter(
-      (lead) => getFollowUpTiming(lead.followUp) === 'overdue',
-    ).length,
-    todayFollowups: projectLeads.filter(
-      (lead) => getFollowUpTiming(lead.followUp) === 'today',
-    ).length,
-    totalLeads: projectLeads.length,
+    id: assignedUser.id,
+    name: assignedUser.name,
   };
+}
+
+function mapLeadProject(project: BackendLeadProjectDto): LeadProject {
+  return {
+    id: project.id,
+    name: project.name,
+  };
+}
+
+function mapLeadListRecord(lead: BackendLeadListDto): LeadListRecord {
+  return {
+    assignedUser: mapAssignedUser(lead.assigned_user),
+    createdAt: lead.created_at,
+    firstName: lead.first_name,
+    followUp: lead.follow_up,
+    id: lead.id,
+    lastName: lead.last_name,
+    mobileNumber: lead.mobile_number,
+    phoneNumber: lead.phone_number,
+    project: mapLeadProject(lead.project),
+    recordState: lead.status,
+  };
+}
+
+function mapLeadDetailRecord(lead: BackendLeadDetailDto): LeadDetailRecord {
+  return {
+    ...mapLeadListRecord(lead),
+    latestRemarks: lead.latest_remarks,
+    nicNumberMasked: lead.nic_number_masked ?? maskNicNumber(lead.nic_number ?? null),
+    updatedAt: lead.updated_at,
+  };
+}
+
+function mapLeadHistoryRecord(leadHistory: BackendLeadHistoryDto): LeadHistoryRecord {
+  return {
+    callDuration: leadHistory.call_duration,
+    callStatus: leadHistory.call_status,
+    comment: leadHistory.comment,
+    createdAt: leadHistory.created_at,
+    followUp: leadHistory.follow_up,
+    id: leadHistory.id,
+    user: mapAssignedUser(leadHistory.user),
+  };
+}
+
+function mapSummary(summary: BackendCrmSummaryDto): CrmSummary {
+  return {
+    activeLeads: summary.active_leads,
+    overdueFollowups: summary.overdue_followups,
+    todayFollowups: summary.today_followups,
+    totalLeads: summary.total_leads,
+  };
+}
+
+function mapPaginationMeta(meta: BackendCrmPaginationMetaDto): CrmPaginationMeta {
+  return {
+    currentPage: meta.current_page,
+    lastPage: meta.last_page,
+    perPage: meta.per_page,
+    total: meta.total,
+  };
+}
+
+function buildLeadListParams(
+  projectId: number,
+  filters: CrmFilters,
+  pagination: CrmPagination,
+  now: Date = new Date(),
+): BuiltLeadListParams {
+  const dateRange = normalizeDateRange(filters, now);
+  const params: CrmListParams = {
+    page: pagination.page,
+    per_page: pagination.perPage,
+    project_id: projectId,
+    sort_by: filters.sortBy,
+    sort_order: filters.sortOrder,
+  };
+
+  const search = trimToUndefined(filters.search);
+
+  if (search) {
+    params.search = search;
+  }
+
+  if (filters.recordState === 'active' || filters.recordState === 'inactive') {
+    params.status = filters.recordState;
+  }
+
+  if (dateRange === null) {
+    return { params, skipRequest: true };
+  }
+
+  if (dateRange.from) {
+    params.follow_up_from = dateRange.from;
+  }
+
+  if (dateRange.to) {
+    params.follow_up_to = dateRange.to;
+  }
+
+  return { params, skipRequest: false };
+}
+
+function toCreateLeadRequest(input: CreateLeadInput): BackendCreateLeadRequestDto {
+  return {
+    first_name: input.firstName.trim(),
+    follow_up: trimToNullable(input.followUp),
+    last_name: input.lastName.trim(),
+    mobile_number: trimToNullable(input.mobileNumber),
+    nic_number: trimToNullable(input.nicNumber),
+    phone_number: input.phoneNumber.trim(),
+    project_id: input.projectId,
+    remarks: trimToNullable(input.remarks),
+  };
+}
+
+function toUpdateLeadRequest(input: UpdateLeadInput): BackendUpdateLeadRequestDto {
+  return {
+    first_name: input.firstName.trim(),
+    follow_up: trimToNullable(input.followUp),
+    last_name: input.lastName.trim(),
+    mobile_number: trimToNullable(input.mobileNumber),
+    nic_number: trimToNullable(input.nicNumber),
+    phone_number: input.phoneNumber.trim(),
+    remarks: trimToNullable(input.remarks),
+  };
+}
+
+function toUpdateFollowUpRequest(
+  input: UpdateFollowUpInput,
+): BackendUpdateFollowUpRequestDto {
+  return {
+    follow_up_date: input.followUpDate,
+    remarks: trimToNullable(input.remarks),
+    status: input.status,
+  };
+}
+
+function resolveCreatedLeadId(data: BackendCreateLeadResponseDto) {
+  const leadId = data.id ?? data.lead_id ?? null;
+
+  if (leadId === null) {
+    throw new Error('CRM create lead response did not include a lead id.');
+  }
+
+  return leadId;
+}
+
+export function mapCrmFieldErrors(fieldErrors: ApiFieldErrors): CrmFormErrors {
+  return Object.entries(fieldErrors).reduce<CrmFormErrors>((errors, [key, value]) => {
+    const mappedKey = FIELD_ERROR_MAP[key as keyof typeof FIELD_ERROR_MAP];
+
+    if (!mappedKey || value.length === 0) {
+      return errors;
+    }
+
+    errors[mappedKey] = value[0];
+    return errors;
+  }, {});
+}
+
+export function getSummaryQuickFilter(summary: CrmSummary, quickFilter: FollowUpTiming) {
+  if (quickFilter === 'today') {
+    return summary.todayFollowups;
+  }
+
+  if (quickFilter === 'overdue') {
+    return summary.overdueFollowups;
+  }
+
+  return summary.totalLeads;
+}
+
+export async function getSummary(projectId: number): Promise<CrmSummary> {
+  const response = await apiClient.get<ApiSuccessResponse<BackendCrmSummaryDto>>(
+    'crm/summary',
+    {
+      params: {
+        project_id: projectId,
+      },
+    },
+  );
+
+  return mapSummary(response.data.data);
 }
 
 export async function getLeads(
@@ -310,154 +534,71 @@ export async function getLeads(
   filters: CrmFilters = defaultCrmFilters,
   pagination: CrmPagination = { page: 1, perPage: 20 },
 ) {
-  await delay(CRM_DELAY_MS);
-  const filteredLeads = sortLeads(applyFilters(leadsDb, projectId, filters), filters);
-  const startIndex = (pagination.page - 1) * pagination.perPage;
-  const data = filteredLeads
-    .slice(startIndex, startIndex + pagination.perPage)
-    .map(toLeadListRecord);
+  const builtParams = buildLeadListParams(projectId, filters, pagination);
+
+  if (builtParams.skipRequest) {
+    return {
+      data: [],
+      meta: {
+        currentPage: pagination.page,
+        lastPage: 1,
+        perPage: pagination.perPage,
+        total: 0,
+      } satisfies CrmPaginationMeta,
+    };
+  }
+
+  const response = await apiClient.get<
+    ApiSuccessResponse<BackendLeadListDto[], BackendCrmPaginationMetaDto>
+  >('crm/leads', {
+    params: builtParams.params,
+  });
 
   return {
-    data,
-    meta: {
-      currentPage: pagination.page,
-      lastPage: Math.max(Math.ceil(filteredLeads.length / pagination.perPage), 1),
-      perPage: pagination.perPage,
-      total: filteredLeads.length,
-    } satisfies CrmPaginationMeta,
+    data: response.data.data.map(mapLeadListRecord),
+    meta: mapPaginationMeta(response.data.meta),
   };
 }
 
-export async function getLead(id: number) {
-  await delay(CRM_DELAY_MS);
-  const lead = leadsDb.find((item) => item.id === id);
+export async function getLead(id: number): Promise<LeadDetailRecord> {
+  const response = await apiClient.get<ApiSuccessResponse<BackendLeadDetailDto>>(
+    `crm/leads/${id}`,
+  );
 
-  return lead ? toLeadDetailRecord(lead) : null;
+  return mapLeadDetailRecord(response.data.data);
 }
 
-export async function getHistory(id: number) {
-  await delay(CRM_DELAY_MS);
-  const lead = leadsDb.find((item) => item.id === id);
+export async function getHistory(id: number): Promise<LeadHistoryRecord[]> {
+  const response = await apiClient.get<ApiSuccessResponse<BackendLeadHistoryDto[]>>(
+    `crm/leads/${id}/history`,
+  );
 
-  return lead ? cloneHistory(lead.history) : [];
+  return response.data.data.map(mapLeadHistoryRecord);
 }
 
 export async function createLead(input: CreateLeadInput) {
-  await delay(CRM_DELAY_MS);
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const leadId = nextLeadId++;
-  const initialHistory =
-    input.remarks?.trim()
-      ? [
-          createHistoryRecord({
-            callStatus: 6,
-            comment: input.remarks.trim(),
-            followUp: input.followUp,
-            user: null,
-          }),
-        ]
-      : [];
+  const response = await apiClient.post<ApiSuccessResponse<BackendCreateLeadResponseDto>>(
+    'crm/leads',
+    toCreateLeadRequest(input),
+  );
 
-  leadsDb = [
-    {
-      assignedUser: null,
-      createdAt: now,
-      firstName: input.firstName.trim(),
-      followStatus: 6,
-      followUp: input.followUp,
-      history: initialHistory,
-      id: leadId,
-      isActive: true,
-      lastName: input.lastName.trim(),
-      latestRemarks: input.remarks?.trim() || null,
-      mobileNumber: input.mobileNumber?.trim() || null,
-      nicNumber: input.nicNumber?.trim() || null,
-      phoneNumber: input.phoneNumber.trim(),
-      project: {
-        id: input.projectId,
-        name: input.projectId === 102 ? 'Blue Heights' : 'Blue Residency',
-      },
-      updatedAt: now,
-    },
-    ...leadsDb,
-  ];
-
-  return { id: leadId };
+  return { id: resolveCreatedLeadId(response.data.data) };
 }
 
 export async function updateLead(id: number, input: UpdateLeadInput) {
-  await delay(CRM_DELAY_MS);
-  const leadIndex = getLeadIndex(id);
-
-  if (leadIndex < 0) {
-    return null;
-  }
-
-  const currentLead = leadsDb[leadIndex]!;
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const nextHistory =
-    input.remarks?.trim()
-      ? [
-          createHistoryRecord({
-            comment: input.remarks.trim(),
-            followUp: input.followUp,
-            user: currentLead.assignedUser,
-          }),
-          ...currentLead.history,
-        ]
-      : currentLead.history;
-
-  leadsDb[leadIndex] = {
-    ...currentLead,
-    firstName: input.firstName.trim(),
-    followUp: input.followUp,
-    history: nextHistory,
-    lastName: input.lastName.trim(),
-    latestRemarks:
-      input.remarks?.trim() || currentLead.latestRemarks,
-    mobileNumber: input.mobileNumber?.trim() || null,
-    nicNumber: input.nicNumber?.trim() || null,
-    phoneNumber: input.phoneNumber.trim(),
-    updatedAt: now,
-  };
+  await apiClient.put<ApiSuccessResponse<Record<string, unknown>>>(
+    `crm/leads/${id}`,
+    toUpdateLeadRequest(input),
+  );
 
   return { id };
 }
 
 export async function updateFollowUp(id: number, input: UpdateFollowUpInput) {
-  await delay(CRM_DELAY_MS);
-  const leadIndex = getLeadIndex(id);
+  await apiClient.post<ApiSuccessResponse<Record<string, unknown>>>(
+    `crm/leads/${id}/follow-up`,
+    toUpdateFollowUpRequest(input),
+  );
 
-  if (leadIndex < 0) {
-    return null;
-  }
-
-  const currentLead = leadsDb[leadIndex]!;
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const nextHistoryRecord = createHistoryRecord({
-    callStatus: input.status,
-    comment: input.remarks?.trim() || null,
-    followUp: input.followUpDate,
-    user: currentLead.assignedUser,
-  });
-
-  leadsDb[leadIndex] = {
-    ...currentLead,
-    followStatus: input.status ?? currentLead.followStatus,
-    followUp: input.followUpDate,
-    history: [nextHistoryRecord, ...currentLead.history],
-    latestRemarks: input.remarks?.trim() || currentLead.latestRemarks,
-    updatedAt: now,
-  };
-
-  return {
-    followUp: input.followUpDate,
-    id,
-  };
-}
-
-export function __resetCrmServiceData() {
-  leadsDb = createCrmSeedData();
-  nextLeadId = 2000;
-  nextHistoryId = 10000;
+  return { id };
 }
