@@ -32,6 +32,7 @@ function mapAuthSession(
 ): AuthSession {
   return {
     accessToken,
+    backendRoleNames: [...data.role_names],
     permissions: [...data.permissions],
     projects: data.projects.map((project) => ({
       id: project.id,

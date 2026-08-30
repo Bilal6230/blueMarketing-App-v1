@@ -52,6 +52,7 @@ function combineDateAndTime(date: string, time: string) {
 
 export function CreateLeadScreen() {
   const router = useRouter();
+  const backendRoleNames = useAuthStore((state) => state.backendRoleNames);
   const permissions = useAuthStore((state) => state.permissions);
   const projects = useAuthStore((state) => state.projects);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
@@ -74,7 +75,11 @@ export function CreateLeadScreen() {
   const [followUpTime, setFollowUpTime] = useState('');
   const [remarks, setRemarks] = useState('');
   const [errors, setErrors] = useState<CrmFormErrors>({});
-  const canCreateLead = hasCrmPermission(permissions, 'create lead');
+  const canCreateLead = hasCrmPermission(
+    permissions,
+    backendRoleNames,
+    'create lead',
+  );
   const isDirty = Boolean(
     firstName || lastName || phoneNumber || mobileNumber || nicNumber || followUpDate || followUpTime || remarks,
   );

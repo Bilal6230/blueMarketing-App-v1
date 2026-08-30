@@ -11,6 +11,7 @@ export type AuthUser = {
 
 export type AuthSession = {
   accessToken: string;
+  backendRoleNames?: string[];
   permissions: string[];
   projects: ProjectSummary[];
   roles: AppRole[];

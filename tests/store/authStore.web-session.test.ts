@@ -27,6 +27,7 @@ const mockedAuthService = jest.mocked(authService);
 
 const authSession: AuthSession = {
   accessToken: 'web-token-1',
+  backendRoleNames: ['staff'],
   permissions: ['dashboard.view'],
   projects: [
     { id: 7, name: 'Blue Residency' },
@@ -64,6 +65,7 @@ describe('authStore web session persistence', () => {
   beforeEach(() => {
     useAuthStore.setState({
       accessToken: null,
+      backendRoleNames: [],
       permissions: [],
       projects: [],
       roles: [],
@@ -115,6 +117,7 @@ describe('authStore web session persistence', () => {
 
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: authSession.accessToken,
+      backendRoleNames: authSession.backendRoleNames,
       permissions: authSession.permissions,
       projects: authSession.projects,
       roles: authSession.roles,
@@ -130,6 +133,7 @@ describe('authStore web session persistence', () => {
     expect(state.size).toBe(0);
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: null,
+      backendRoleNames: [],
       permissions: [],
       projects: [],
       roles: [],

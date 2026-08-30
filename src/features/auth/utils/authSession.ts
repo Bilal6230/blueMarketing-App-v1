@@ -13,6 +13,9 @@ export function isAuthSession(value: unknown): value is AuthSession {
 
   return (
     typeof session.accessToken === 'string' &&
+    (session.backendRoleNames === undefined ||
+      (Array.isArray(session.backendRoleNames) &&
+        session.backendRoleNames.every((item) => typeof item === 'string'))) &&
     Array.isArray(session.permissions) &&
     session.permissions.every((item) => typeof item === 'string') &&
     Array.isArray(session.projects) &&

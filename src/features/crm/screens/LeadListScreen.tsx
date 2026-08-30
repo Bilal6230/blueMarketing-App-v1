@@ -79,6 +79,7 @@ function getActiveAdvancedFilterCount(filters: CrmFilters) {
 export function LeadListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ status?: string }>();
+  const backendRoleNames = useAuthStore((state) => state.backendRoleNames);
   const permissions = useAuthStore((state) => state.permissions);
   const projects = useAuthStore((state) => state.projects);
   const selectedProjectId = useAuthStore((state) => state.selectedProjectId);
@@ -94,8 +95,16 @@ export function LeadListScreen() {
   const resetCrmState = useCrmStore((state) => state.resetCrmState);
   const projectId =
     selectedProjectId ?? (projects.length === 1 ? projects[0]?.id ?? null : null);
-  const canReadLead = hasCrmPermission(permissions, 'read lead');
-  const canCreateLead = hasCrmPermission(permissions, 'create lead');
+  const canReadLead = hasCrmPermission(
+    permissions,
+    backendRoleNames,
+    'read lead',
+  );
+  const canCreateLead = hasCrmPermission(
+    permissions,
+    backendRoleNames,
+    'create lead',
+  );
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<CrmFilters>({
     ...defaultCrmFilters,

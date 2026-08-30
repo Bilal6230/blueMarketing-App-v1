@@ -85,6 +85,7 @@ describe('authService', () => {
       }),
     ).resolves.toEqual({
       accessToken: 'real-token',
+      backendRoleNames: ['administrator'],
       permissions: ['crm.view', 'dashboard.view'],
       projects: [{ id: 7, name: 'HQ' }],
       roles: ['administrator'],
@@ -120,6 +121,7 @@ describe('authService', () => {
     await expect(
       signIn({ email: 'admin@example.com', password: 'secure-pass' }),
     ).resolves.toMatchObject({
+      backendRoleNames: ['admin'],
       roles: ['administrator'],
     });
   });
@@ -146,6 +148,7 @@ describe('authService', () => {
     await expect(
       signIn({ email: 'admin@example.com', password: 'secure-pass' }),
     ).resolves.toMatchObject({
+      backendRoleNames: ['superadmin'],
       roles: ['administrator'],
     });
   });
@@ -173,6 +176,7 @@ describe('authService', () => {
       signIn({ email: 'staff@bluemarketing.com', password: 'secure-pass' }),
     ).resolves.toEqual({
       accessToken: 'token-2',
+      backendRoleNames: ['sales-executive'],
       permissions: ['profile.view'],
       projects: [{ id: 9, name: 'Blue Heights' }],
       roles: ['staff'],
@@ -206,6 +210,7 @@ describe('authService', () => {
 
     await expect(getCurrentSession('persisted-token', 11)).resolves.toEqual({
       accessToken: 'persisted-token',
+      backendRoleNames: ['staff'],
       permissions: ['attendance.manage'],
       projects: [{ id: 11, name: 'Field Office' }],
       roles: ['staff'],

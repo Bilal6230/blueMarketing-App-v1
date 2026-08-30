@@ -26,6 +26,7 @@ jest.mock('expo-secure-store', () => ({
 
 const authSession: AuthSession = {
   accessToken: 'token-1',
+  backendRoleNames: ['staff'],
   permissions: ['dashboard.view'],
   projects: [{ id: 42, name: 'Blue Residency' }],
   roles: ['staff'],

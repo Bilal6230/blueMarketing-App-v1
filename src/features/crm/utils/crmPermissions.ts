@@ -1,6 +1,13 @@
+import { hasAppPermission } from '@/utils/authorization';
+
 export function hasCrmPermission(
   permissions: string[],
+  backendRoleNames: string[],
   permission: 'create lead' | 'read lead' | 'update lead',
 ) {
-  return permissions.includes(permission);
+  return hasAppPermission({
+    backendRoleNames,
+    permission,
+    permissions,
+  });
 }

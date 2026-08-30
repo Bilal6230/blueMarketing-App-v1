@@ -14,6 +14,7 @@ describe('authStore', () => {
   beforeEach(() => {
     useAuthStore.setState({
       accessToken: null,
+      backendRoleNames: [],
       permissions: [],
       projects: [],
       roles: [],
@@ -39,6 +40,7 @@ describe('authStore', () => {
 
     const result = await useAuthStore.getState().setSession({
       accessToken: 'token-1',
+      backendRoleNames: ['admin'],
       permissions: ['reports.view'],
       projects: [{ id: 7, name: 'HQ' }],
       roles: ['administrator'],
@@ -62,6 +64,7 @@ describe('authStore', () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 9, name: 'HQ' }],
       roles: ['staff'],
@@ -76,6 +79,7 @@ describe('authStore', () => {
       .mockResolvedValue({ ok: true });
     mockedAuthService.getCurrentSession.mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view', 'crm.view'],
       projects: [{ id: 9, name: 'HQ' }],
       roles: ['staff'],
@@ -91,6 +95,7 @@ describe('authStore', () => {
     );
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view', 'crm.view'],
       selectedProjectId: 9,
       status: 'authenticated',
@@ -101,6 +106,7 @@ describe('authStore', () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 7, name: 'HQ' }],
       roles: ['staff'],
@@ -115,6 +121,7 @@ describe('authStore', () => {
       .mockResolvedValue({ ok: true });
     mockedAuthService.getCurrentSession.mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 7, name: 'HQ' }],
       roles: ['staff'],
@@ -134,6 +141,7 @@ describe('authStore', () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 9, name: 'HQ' }],
       roles: ['staff'],
@@ -156,6 +164,7 @@ describe('authStore', () => {
       )
       .mockResolvedValueOnce({
         accessToken: 'token-2',
+        backendRoleNames: ['staff'],
         permissions: ['dashboard.view', 'crm.view'],
         projects: [{ id: 11, name: 'Field Office' }],
         roles: ['staff'],
@@ -177,6 +186,7 @@ describe('authStore', () => {
     );
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view', 'crm.view'],
       projects: [{ id: 11, name: 'Field Office' }],
       selectedProjectId: null,
@@ -188,6 +198,7 @@ describe('authStore', () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 9, name: 'HQ' }],
       roles: ['staff'],
@@ -228,6 +239,7 @@ describe('authStore', () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 9, name: 'HQ' }],
       roles: ['staff'],
@@ -249,6 +261,7 @@ describe('authStore', () => {
 
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       selectedProjectId: 9,
       status: 'authenticated',
@@ -259,6 +272,7 @@ describe('authStore', () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('bad-token');
     jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
       accessToken: 'bad-token',
+      backendRoleNames: ['staff'],
       permissions: ['dashboard.view'],
       projects: [{ id: 9, name: 'HQ' }],
       roles: ['staff'],
@@ -295,6 +309,7 @@ describe('authStore', () => {
 
     useAuthStore.setState({
       accessToken: 'token-1',
+      backendRoleNames: [],
       permissions: [],
       projects: [{ id: 1, name: 'HQ' }],
       roles: [],
@@ -319,6 +334,7 @@ describe('authStore', () => {
 
     useAuthStore.setState({
       accessToken: 'token-1',
+      backendRoleNames: ['admin'],
       permissions: ['reports.view'],
       projects: [{ id: 1, name: 'HQ' }],
       roles: ['administrator'],
@@ -352,6 +368,7 @@ describe('authStore', () => {
 
     useAuthStore.setState({
       accessToken: 'token-1',
+      backendRoleNames: ['admin'],
       permissions: ['reports.view'],
       projects: [{ id: 1, name: 'HQ' }],
       roles: ['administrator'],
@@ -366,5 +383,55 @@ describe('authStore', () => {
       accessToken: null,
       status: 'unauthenticated',
     });
+  });
+
+  it('persists backendRoleNames through setSession and refresh hydration', async () => {
+    const setAuthSessionSpy = jest
+      .spyOn(secureStorage, 'setAuthSession')
+      .mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
+      .mockResolvedValue({ ok: true });
+
+    await useAuthStore.getState().setSession({
+      accessToken: 'token-9',
+      backendRoleNames: [' SuperAdmin '],
+      permissions: [],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 1, name: 'Sana' },
+    });
+
+    expect(setAuthSessionSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        backendRoleNames: [' SuperAdmin '],
+      }),
+    );
+
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-9');
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(7);
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-9',
+      permissions: [],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 1, name: 'Sana' },
+    });
+    mockedAuthService.getCurrentSession.mockResolvedValue({
+      accessToken: 'token-9',
+      backendRoleNames: ['SuperAdmin'],
+      permissions: [],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 1, name: 'Sana' },
+    });
+
+    await useAuthStore.getState().hydrateSession();
+
+    expect(useAuthStore.getState().backendRoleNames).toEqual(['SuperAdmin']);
   });
 });

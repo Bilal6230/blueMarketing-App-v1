@@ -83,9 +83,14 @@ export function buildEditLeadInput(values: EditLeadFormValues): UpdateLeadInput 
 export function EditLeadScreen() {
   const params = useLocalSearchParams<{ leadId?: string }>();
   const router = useRouter();
+  const backendRoleNames = useAuthStore((state) => state.backendRoleNames);
   const permissions = useAuthStore((state) => state.permissions);
   const leadId = Number(params.leadId ?? 0);
-  const canUpdateLead = hasCrmPermission(permissions, 'update lead');
+  const canUpdateLead = hasCrmPermission(
+    permissions,
+    backendRoleNames,
+    'update lead',
+  );
   const loadLeadDetail = useCrmStore((state) => state.loadLeadDetail);
   const detailById = useCrmStore((state) => state.detailById);
   const leadError = useCrmStore((state) => state.leadError);

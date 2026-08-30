@@ -28,6 +28,7 @@ import {
 
 type AuthState = {
   accessToken: string | null;
+  backendRoleNames: string[];
   permissions: string[];
   projects: ProjectSummary[];
   roles: AppRole[];
@@ -43,6 +44,7 @@ type AuthState = {
 
 const initialState = {
   accessToken: null,
+  backendRoleNames: [],
   permissions: [],
   projects: [],
   roles: [] as AppRole[],
@@ -84,6 +86,7 @@ function buildSessionState(
 ) {
   return {
     accessToken: session.accessToken,
+    backendRoleNames: session.backendRoleNames ?? [],
     permissions: session.permissions,
     projects: session.projects,
     roles: session.roles,
@@ -235,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ selectedProjectId: projectId });
       await setAuthSession({
         accessToken: state.accessToken ?? '',
+        backendRoleNames: state.backendRoleNames,
         permissions: state.permissions,
         projects: state.projects,
         roles: state.roles,
@@ -279,6 +283,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const sessionPersistenceResult = await setAuthSession({
       ...session,
+      backendRoleNames: session.backendRoleNames ?? [],
       selectedProjectId,
     });
 

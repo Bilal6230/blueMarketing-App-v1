@@ -65,8 +65,13 @@ function combineDateAndTime(date: string, time: string) {
 export function LeadDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ leadId?: string; notice?: string }>();
+  const backendRoleNames = useAuthStore((state) => state.backendRoleNames);
   const permissions = useAuthStore((state) => state.permissions);
-  const canUpdateLead = hasCrmPermission(permissions, 'update lead');
+  const canUpdateLead = hasCrmPermission(
+    permissions,
+    backendRoleNames,
+    'update lead',
+  );
   const leadId = Number(params.leadId ?? 0);
   const loadLeadDetail = useCrmStore((state) => state.loadLeadDetail);
   const loadLeadHistory = useCrmStore((state) => state.loadLeadHistory);
