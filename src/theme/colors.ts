@@ -1,58 +1,63 @@
-export type ThemeColors = {
-  background: string;
-  border: string;
-  borderStrong: string;
-  danger: string;
-  info: string;
-  primary: string;
-  primaryPressed: string;
-  primarySoft: string;
-  success: string;
-  surface: string;
-  surfaceElevated: string;
-  surfaceMuted: string;
-  textMuted: string;
-  textPrimary: string;
-  textSecondary: string;
-  warning: string;
-};
+import type { ThemeColors } from '@/theme/types';
 
-const lightColors: ThemeColors = {
-  background: '#F3F7FC',
-  border: '#D4DCE8',
-  borderStrong: '#A5B4C7',
-  danger: '#B94444',
-  info: '#2C6EBF',
-  primary: '#1656B8',
-  primaryPressed: '#0E428D',
-  primarySoft: '#DDE9FB',
-  success: '#2A7A5A',
+export const lightColors: ThemeColors = {
+  background: '#F4F7FB',
+  border: '#D7E0EB',
+  borderStrong: '#AEBBCB',
+  danger: '#C43D4B',
+  dangerSoft: '#FDECEF',
+  focusRing: '#5A9BFF',
+  gradientHeroEnd: '#071426',
+  gradientHeroStart: '#2878F0',
+  info: '#0E7090',
+  infoSoft: '#E7F5FA',
+  inputBackground: '#FFFFFF',
+  inputPlaceholder: '#667085',
+  overlay: 'rgba(7, 20, 38, 0.42)',
+  primary: '#2878F0',
+  primaryPressed: '#1F63D5',
+  primarySoft: '#EEF5FF',
+  skeletonBase: '#DCE6F1',
+  skeletonHighlight: '#F8FBFF',
+  success: '#14805E',
+  successSoft: '#E6F5EF',
   surface: '#FFFFFF',
-  surfaceElevated: '#F8FBFF',
-  surfaceMuted: '#E9F0F8',
-  textMuted: '#607287',
-  textPrimary: '#122033',
-  textSecondary: '#3E526A',
-  warning: '#A8681A',
+  surfaceElevated: '#FFFFFF',
+  surfaceMuted: '#EDF2F8',
+  textMuted: '#667085',
+  textPrimary: '#102033',
+  textSecondary: '#526276',
+  warning: '#9A5B0F',
+  warningSoft: '#FFF3DE',
 };
 
-const darkColors: ThemeColors = {
-  background: '#08111D',
-  border: '#22344A',
-  borderStrong: '#46627F',
-  danger: '#E07C7C',
-  info: '#6EA2F1',
-  primary: '#4E8EF8',
-  primaryPressed: '#356FD5',
-  primarySoft: '#16396A',
-  success: '#62B894',
-  surface: '#0F1C2D',
-  surfaceElevated: '#142538',
-  surfaceMuted: '#0C1725',
-  textMuted: '#92A6BE',
-  textPrimary: '#F3F7FC',
-  textSecondary: '#C2D0DF',
-  warning: '#E8B36A',
+export const darkColors: ThemeColors = {
+  background: '#07101D',
+  border: '#1D3048',
+  borderStrong: '#263A52',
+  danger: '#E16673',
+  dangerSoft: '#4A1A22',
+  focusRing: '#5A9BFF',
+  gradientHeroEnd: '#12243D',
+  gradientHeroStart: '#1F63D5',
+  info: '#4AAFD3',
+  infoSoft: '#123544',
+  inputBackground: '#0D1929',
+  inputPlaceholder: '#7F8EA3',
+  overlay: 'rgba(7, 16, 29, 0.62)',
+  primary: '#5A9BFF',
+  primaryPressed: '#2878F0',
+  primarySoft: '#163A6A',
+  skeletonBase: '#17304A',
+  skeletonHighlight: '#213753',
+  success: '#3CB98C',
+  successSoft: '#123629',
+  surface: '#0D1929',
+  surfaceElevated: '#132238',
+  surfaceMuted: '#192B43',
+  textMuted: '#8B9AAF',
+  textPrimary: '#F5F8FC',
+  textSecondary: '#B5C1D1',
+  warning: '#D89B4A',
+  warningSoft: '#46331A',
 };
-
-export { darkColors, lightColors };

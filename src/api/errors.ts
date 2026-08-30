@@ -1,47 +1,74 @@
 import { AxiosError, isAxiosError } from 'axios';
 import { z } from 'zod';
 
-import type { ApiErrorResponse, AppApiError } from '@/api/contracts';
+import type {
+  ApiErrorResponse,
+  ApiFieldErrors,
+} from '@/api/contracts';
 
 const DEFAULT_ERROR_KEY = 'unexpected_response';
-const DEFAULT_MESSAGE = 'Unexpected response from the server.';
+const DEFAULT_MESSAGE = 'The server could not complete the request. Try again.';
+const NETWORK_ERROR_MESSAGE =
+  'Unable to connect to the server. Check your internet connection and try again.';
 
 const payloadRecordSchema = z.record(z.string(), z.unknown());
 const validationErrorsSchema = z.record(z.string(), z.array(z.string()));
 
-export function normalizeApiError(error: unknown): AppApiError {
+export class ApiError extends Error {
+  statusCode: number | null;
+  errorKey: string;
+  fieldErrors: ApiFieldErrors;
+  requestId?: string;
+  retryable: boolean;
+
+  constructor(options: {
+    errorKey: string;
+    fieldErrors?: ApiFieldErrors;
+    message: string;
+    requestId?: string;
+    retryable?: boolean;
+    statusCode: number | null;
+  }) {
+    super(options.message);
+    this.name = 'ApiError';
+    this.statusCode = options.statusCode;
+    this.errorKey = options.errorKey;
+    this.fieldErrors = options.fieldErrors ?? {};
+    this.requestId = options.requestId;
+    this.retryable = options.retryable ?? false;
+  }
+}
+
+export function normalizeApiError(error: unknown): ApiError {
   if (isAxiosError(error)) {
     return normalizeAxiosError(error);
   }
 
-  return {
+  return new ApiError({
     statusCode: null,
     errorKey: DEFAULT_ERROR_KEY,
     message: 'An unexpected error occurred.',
-    validationErrors: {},
     retryable: false,
-  };
+  });
 }
 
-function normalizeAxiosError(error: AxiosError<ApiErrorResponse>): AppApiError {
+function normalizeAxiosError(error: AxiosError<ApiErrorResponse>): ApiError {
   if (error.code === AxiosError.ERR_NETWORK) {
-    return {
+    return new ApiError({
       statusCode: null,
-      errorKey: 'network_unavailable',
-      message: 'Network unavailable. Check your connection and try again.',
-      validationErrors: {},
+      errorKey: 'network',
+      message: NETWORK_ERROR_MESSAGE,
       retryable: true,
-    };
+    });
   }
 
   if (error.code === AxiosError.ECONNABORTED) {
-    return {
+    return new ApiError({
       statusCode: null,
       errorKey: 'request_timeout',
-      message: 'The request timed out. Try again.',
-      validationErrors: {},
+      message: NETWORK_ERROR_MESSAGE,
       retryable: true,
-    };
+    });
   }
 
   const statusCode = error.response?.status ?? null;
@@ -49,24 +76,23 @@ function normalizeAxiosError(error: AxiosError<ApiErrorResponse>): AppApiError {
   const requestId = readHeader(error, 'x-request-id');
 
   if (!payload) {
-    return {
+    return new ApiError({
       statusCode,
       errorKey: resolveFallbackErrorKey(statusCode),
-      message: DEFAULT_MESSAGE,
+      message: resolveFallbackMessage(statusCode),
       requestId,
-      validationErrors: {},
       retryable: isRetryableStatus(statusCode),
-    };
+    });
   }
 
-  return {
+  return new ApiError({
     statusCode,
     errorKey: payload.errorKey ?? resolveFallbackErrorKey(statusCode),
-    message: payload.message ?? DEFAULT_MESSAGE,
+    message: payload.message ?? resolveFallbackMessage(statusCode),
     requestId,
-    validationErrors: payload.validationErrors,
+    fieldErrors: payload.fieldErrors,
     retryable: isRetryableStatus(statusCode),
-  };
+  });
 }
 
 function resolveFallbackErrorKey(statusCode: number | null) {
@@ -83,6 +109,8 @@ function resolveFallbackErrorKey(statusCode: number | null) {
       return 'validation_error';
     case 429:
       return 'rate_limited';
+    case null:
+      return 'network';
     case 500:
     case 502:
     case 503:
@@ -91,6 +119,18 @@ function resolveFallbackErrorKey(statusCode: number | null) {
     default:
       return DEFAULT_ERROR_KEY;
   }
+}
+
+function resolveFallbackMessage(statusCode: number | null) {
+  if (statusCode === null) {
+    return NETWORK_ERROR_MESSAGE;
+  }
+
+  if (statusCode >= 500) {
+    return DEFAULT_MESSAGE;
+  }
+
+  return DEFAULT_MESSAGE;
 }
 
 function isRetryableStatus(statusCode: number | null) {
@@ -121,7 +161,7 @@ function readApiErrorPayload(payload: unknown) {
   return {
     errorKey,
     message,
-    validationErrors,
+    fieldErrors: validationErrors,
   };
 }
 

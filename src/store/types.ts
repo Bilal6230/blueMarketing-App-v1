@@ -11,7 +11,10 @@ export type SessionPersistenceResult =
     }
   | {
       ok: false;
-      reason: 'tokenPersistenceFailed' | 'selectedProjectPersistenceFailed';
+      reason:
+        | 'tokenPersistenceFailed'
+        | 'selectedProjectPersistenceFailed'
+        | 'sessionPersistenceFailed';
       selectedProjectId: number | null;
       rollbackRequired: boolean;
       rollbackSucceeded: boolean | null;

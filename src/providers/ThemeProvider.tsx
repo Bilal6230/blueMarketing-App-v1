@@ -24,7 +24,7 @@ type ThemeProviderProps = PropsWithChildren<{
 
 export function ThemeProvider({
   children,
-  initialPreference = 'system',
+  initialPreference = 'light',
 }: ThemeProviderProps) {
   const systemScheme = useColorScheme();
   const [themePreference, setThemePreference] =

@@ -1,6 +1,6 @@
 import { create } from 'axios';
 
-import { normalizeApiError } from '@/api/errors';
+import { ApiError, normalizeApiError } from '@/api/errors';
 import { generateRequestId } from '@/api/requestId';
 import {
   getAccessTokenForRequest,
@@ -10,7 +10,7 @@ import { API_TIMEOUT_MS } from '@/config/constants';
 import { env } from '@/config/env';
 
 export const apiClient = create({
-  baseURL: env.apiUrl,
+  baseURL: env.apiBaseUrl,
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -19,13 +19,18 @@ export const apiClient = create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getAccessTokenForRequest();
   const requestId = await generateRequestId();
 
   config.headers.set('X-Request-ID', requestId);
 
-  if (token) {
-    config.headers.set('Authorization', `Bearer ${token}`);
+  if (!config.headers.has('Authorization')) {
+    const token = await getAccessTokenForRequest();
+
+    if (token) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    }
+  } else if (config.headers.get('Authorization') === '') {
+    config.headers.delete('Authorization');
   }
 
   return config;
@@ -36,10 +41,36 @@ apiClient.interceptors.response.use(
   async (error: unknown) => {
     const normalized = normalizeApiError(error);
 
-    if (normalized.statusCode === 401) {
+    if (shouldNotifyUnauthorized(normalized, error)) {
       await notifyUnauthorized();
     }
 
     return Promise.reject(normalized);
   },
 );
+
+function shouldNotifyUnauthorized(error: ApiError, rawError: unknown) {
+  if (error.statusCode !== 401) {
+    return false;
+  }
+
+  if (!(rawError instanceof Error) || !('config' in rawError)) {
+    return true;
+  }
+
+  const requestConfig = (rawError as { config?: { url?: string } }).config;
+  const requestUrl = requestConfig?.url ?? '';
+
+  return !isLoginRequest(requestUrl);
+}
+
+function isLoginRequest(requestUrl: string) {
+  try {
+    const normalizedPath = new URL(requestUrl, `${env.apiBaseUrl}/`)
+      .pathname.replace(/\/+$/, '');
+
+    return /\/auth\/login$/.test(normalizedPath);
+  } catch {
+    return false;
+  }
+}

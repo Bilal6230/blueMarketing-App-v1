@@ -6,12 +6,14 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "blue-marketing",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/images/icon.png"
     },
     "android": {
+      "package": "com.itsbilal.bluemarketing",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -35,7 +37,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
@@ -43,7 +46,12 @@
     "extra": {
       "runtimeNotes": {
         "bundleIdentifiers": "Finalize the Android package and iOS bundle identifier before signed production builds."
+      },
+      "router": {},
+      "eas": {
+        "projectId": "96225126-efc6-41b3-8b91-d9a9433a852a"
       }
-    }
+    },
+    "owner": "itsbilal"
   }
 }

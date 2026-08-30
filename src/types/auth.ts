@@ -1,16 +1,20 @@
 import type { ProjectSummary } from '@/types/project';
 
+export type AppRole = 'administrator' | 'staff';
+
 export type AuthUser = {
+  avatar?: string | null;
+  email?: string | null;
   id: number;
   name: string;
-  email?: string | null;
 };
 
 export type AuthSession = {
   accessToken: string;
+  backendRoleNames?: string[];
   permissions: string[];
   projects: ProjectSummary[];
-  roles: string[];
+  roles: AppRole[];
   selectedProjectId: number | null;
   user: AuthUser | null;
 };

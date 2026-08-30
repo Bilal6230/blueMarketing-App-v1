@@ -1,10 +1,15 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 import { SECURE_STORE_KEYS } from '@/config/constants';
+import { isAuthSession } from '@/features/auth/utils/authSession';
 import { logger } from '@/services/logger';
+import type { AuthSession } from '@/types/auth';
 
 export type SecureStorageOperation =
   | 'setAccessToken'
+  | 'setAuthSession'
+  | 'deleteAuthSession'
   | 'deleteAccessToken'
   | 'setSelectedProjectId'
   | 'deleteSelectedProjectId';
@@ -24,6 +29,54 @@ export type ClearSessionStorageResult =
     };
 
 const positiveIntegerPattern = /^[1-9]\d*$/;
+
+function getWebStorage() {
+  if (Platform.OS !== 'web') {
+    return null;
+  }
+
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.sessionStorage;
+}
+
+async function getStoredValue(key: string) {
+  if (Platform.OS === 'web') {
+    try {
+      return getWebStorage()?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  return SecureStore.getItemAsync(key);
+}
+
+async function setStoredValue(key: string, value: string) {
+  if (Platform.OS === 'web') {
+    const storage = getWebStorage();
+
+    if (!storage) {
+      throw new Error('Web session storage is unavailable.');
+    }
+
+    storage.setItem(key, value);
+    return;
+  }
+
+  await SecureStore.setItemAsync(key, value);
+}
+
+async function deleteStoredValue(key: string) {
+  if (Platform.OS === 'web') {
+    getWebStorage()?.removeItem(key);
+    return;
+  }
+
+  await SecureStore.deleteItemAsync(key);
+}
 
 export function parseStoredProjectId(value: string | null) {
   if (value === null) {
@@ -51,7 +104,7 @@ function isValidProjectId(projectId: number) {
 
 export async function getAccessToken() {
   try {
-    return await SecureStore.getItemAsync(SECURE_STORE_KEYS.accessToken);
+    return await getStoredValue(SECURE_STORE_KEYS.accessToken);
   } catch (error) {
     logger.warn('Failed to read access token from secure storage.', {
       key: SECURE_STORE_KEYS.accessToken,
@@ -62,11 +115,32 @@ export async function getAccessToken() {
   }
 }
 
+export async function getAuthSession() {
+  try {
+    const storedValue = await getStoredValue(SECURE_STORE_KEYS.authSession);
+
+    if (!storedValue) {
+      return null;
+    }
+
+    const parsedValue = JSON.parse(storedValue) as unknown;
+
+    return isAuthSession(parsedValue) ? parsedValue : null;
+  } catch (error) {
+    logger.warn('Failed to read auth session from secure storage.', {
+      key: SECURE_STORE_KEYS.authSession,
+      operation: 'getAuthSession',
+      error,
+    });
+    return null;
+  }
+}
+
 export async function setAccessToken(
   token: string,
 ): Promise<SecureStorageResult> {
   try {
-    await SecureStore.setItemAsync(SECURE_STORE_KEYS.accessToken, token);
+    await setStoredValue(SECURE_STORE_KEYS.accessToken, token);
     return { ok: true };
   } catch (error) {
     logger.warn('Failed to persist access token to secure storage.', {
@@ -81,9 +155,28 @@ export async function setAccessToken(
   }
 }
 
+export async function setAuthSession(
+  session: AuthSession,
+): Promise<SecureStorageResult> {
+  try {
+    await setStoredValue(SECURE_STORE_KEYS.authSession, JSON.stringify(session));
+    return { ok: true };
+  } catch (error) {
+    logger.warn('Failed to persist auth session to secure storage.', {
+      key: SECURE_STORE_KEYS.authSession,
+      operation: 'setAuthSession',
+      error,
+    });
+    return {
+      ok: false,
+      operation: 'setAuthSession',
+    };
+  }
+}
+
 export async function deleteAccessToken(): Promise<SecureStorageResult> {
   try {
-    await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.accessToken);
+    await deleteStoredValue(SECURE_STORE_KEYS.accessToken);
     return { ok: true };
   } catch (error) {
     logger.warn('Failed to delete access token from secure storage.', {
@@ -98,11 +191,26 @@ export async function deleteAccessToken(): Promise<SecureStorageResult> {
   }
 }
 
+export async function deleteAuthSession(): Promise<SecureStorageResult> {
+  try {
+    await deleteStoredValue(SECURE_STORE_KEYS.authSession);
+    return { ok: true };
+  } catch (error) {
+    logger.warn('Failed to delete auth session from secure storage.', {
+      key: SECURE_STORE_KEYS.authSession,
+      operation: 'deleteAuthSession',
+      error,
+    });
+    return {
+      ok: false,
+      operation: 'deleteAuthSession',
+    };
+  }
+}
+
 export async function getSelectedProjectId() {
   try {
-    const storedValue = await SecureStore.getItemAsync(
-      SECURE_STORE_KEYS.selectedProjectId,
-    );
+    const storedValue = await getStoredValue(SECURE_STORE_KEYS.selectedProjectId);
 
     return parseStoredProjectId(storedValue);
   } catch (error) {
@@ -133,10 +241,7 @@ export async function setSelectedProjectId(
   }
 
   try {
-    await SecureStore.setItemAsync(
-      SECURE_STORE_KEYS.selectedProjectId,
-      String(projectId),
-    );
+    await setStoredValue(SECURE_STORE_KEYS.selectedProjectId, String(projectId));
     return { ok: true };
   } catch (error) {
     logger.warn('Failed to persist selected project ID to secure storage.', {
@@ -153,7 +258,7 @@ export async function setSelectedProjectId(
 
 export async function deleteSelectedProjectId(): Promise<SecureStorageResult> {
   try {
-    await SecureStore.deleteItemAsync(SECURE_STORE_KEYS.selectedProjectId);
+    await deleteStoredValue(SECURE_STORE_KEYS.selectedProjectId);
     return { ok: true };
   } catch (error) {
     logger.warn('Failed to delete selected project ID from secure storage.', {
@@ -169,11 +274,15 @@ export async function deleteSelectedProjectId(): Promise<SecureStorageResult> {
 }
 
 export async function clearSessionStorage(): Promise<ClearSessionStorageResult> {
-  const [tokenResult, projectResult] = await Promise.all([
+  // Expo Web testing currently uses sessionStorage only for temporary frontend sessions.
+  // Production web auth should move to a backend-managed secure session, preferably an HttpOnly cookie,
+  // and access tokens should not be intentionally persisted in browser localStorage.
+  const [tokenResult, projectResult, authSessionResult] = await Promise.all([
     deleteAccessToken(),
     deleteSelectedProjectId(),
+    deleteAuthSession(),
   ]);
-  const failedOperations = [tokenResult, projectResult]
+  const failedOperations = [tokenResult, projectResult, authSessionResult]
     .filter(
       (result): result is Extract<SecureStorageResult, { ok: false }> =>
         !result.ok,

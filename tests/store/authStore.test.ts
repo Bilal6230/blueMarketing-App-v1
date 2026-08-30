@@ -1,10 +1,20 @@
+import { ApiError } from '@/api/errors';
+import * as authService from '@/features/auth/services/authService';
 import * as secureStorage from '@/services/secureStorage';
 import { useAuthStore } from '@/store/authStore';
+
+jest.mock('@/features/auth/services/authService', () => ({
+  getCurrentSession: jest.fn(),
+  signOut: jest.fn(),
+}));
+
+const mockedAuthService = jest.mocked(authService);
 
 describe('authStore', () => {
   beforeEach(() => {
     useAuthStore.setState({
       accessToken: null,
+      backendRoleNames: [],
       permissions: [],
       projects: [],
       roles: [],
@@ -12,6 +22,7 @@ describe('authStore', () => {
       status: 'booting',
       user: null,
     });
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -20,19 +31,21 @@ describe('authStore', () => {
     expect(useAuthStore.getState().accessToken).toBeNull();
   });
 
-  it('awaits successful token and project persistence before authenticating', async () => {
+  it('persists the token and session before authenticating', async () => {
     jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
     jest
       .spyOn(secureStorage, 'setSelectedProjectId')
       .mockResolvedValue({ ok: true });
 
     const result = await useAuthStore.getState().setSession({
       accessToken: 'token-1',
+      backendRoleNames: ['admin'],
       permissions: ['reports.view'],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
+      roles: ['administrator'],
       selectedProjectId: 7,
-      user: { id: 1, name: 'Bilal' },
+      user: { avatar: null, id: 1, name: 'Bilal' },
     });
 
     expect(result).toEqual({
@@ -47,215 +60,244 @@ describe('authStore', () => {
     });
   });
 
-  it('returns typed failure when token persistence fails', async () => {
-    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({
-      ok: false,
-      operation: 'setAccessToken',
+  it('hydrates startup by refreshing the cached session through auth/me', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
     });
-
-    const result = await useAuthStore.getState().setSession({
-      accessToken: 'token-1',
-      permissions: ['reports.view'],
-      projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
-      selectedProjectId: 7,
-      user: { id: 1, name: 'Bilal' },
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      reason: 'tokenPersistenceFailed',
-      rollbackRequired: false,
-      rollbackSucceeded: null,
-      selectedProjectId: 7,
-    });
-    expect(useAuthStore.getState().status).toBe('booting');
-    expect(useAuthStore.getState().accessToken).toBeNull();
-  });
-
-  it('rolls back the token when selected project persistence fails', async () => {
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
     jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
-    jest.spyOn(secureStorage, 'setSelectedProjectId').mockResolvedValue({
-      ok: false,
-      operation: 'setSelectedProjectId',
-    });
-    const deleteTokenSpy = jest
-      .spyOn(secureStorage, 'deleteAccessToken')
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
       .mockResolvedValue({ ok: true });
-
-    const result = await useAuthStore.getState().setSession({
-      accessToken: 'token-1',
-      permissions: ['reports.view'],
-      projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
-      selectedProjectId: 7,
-      user: { id: 1, name: 'Bilal' },
+    mockedAuthService.getCurrentSession.mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view', 'crm.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
     });
 
-    expect(deleteTokenSpy).toHaveBeenCalled();
-    expect(result).toEqual({
-      ok: false,
-      reason: 'selectedProjectPersistenceFailed',
-      rollbackRequired: true,
-      rollbackSucceeded: true,
-      selectedProjectId: 7,
-    });
-    expect(useAuthStore.getState().status).toBe('booting');
-  });
+    await useAuthStore.getState().hydrateSession();
 
-  it('reports failed token rollback when selected project persistence fails', async () => {
-    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
-    jest.spyOn(secureStorage, 'setSelectedProjectId').mockResolvedValue({
-      ok: false,
-      operation: 'setSelectedProjectId',
-    });
-    jest.spyOn(secureStorage, 'deleteAccessToken').mockResolvedValue({
-      ok: false,
-      operation: 'deleteAccessToken',
-    });
-
-    const result = await useAuthStore.getState().setSession({
-      accessToken: 'token-1',
-      permissions: ['reports.view'],
-      projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
-      selectedProjectId: 7,
-      user: { id: 1, name: 'Bilal' },
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      reason: 'selectedProjectPersistenceFailed',
-      rollbackRequired: true,
-      rollbackSucceeded: false,
-      selectedProjectId: 7,
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledWith(
+      'token-2',
+      9,
+    );
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view', 'crm.view'],
+      selectedProjectId: 9,
+      status: 'authenticated',
     });
   });
 
-  it('rolls back the token after null project persistence failure', async () => {
-    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
-    jest.spyOn(secureStorage, 'deleteSelectedProjectId').mockResolvedValue({
-      ok: false,
-      operation: 'deleteSelectedProjectId',
+  it('prefers a valid cached session project when the locally persisted project is stale', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
     });
-    const deleteTokenSpy = jest
-      .spyOn(secureStorage, 'deleteAccessToken')
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(99);
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
       .mockResolvedValue({ ok: true });
-
-    const result = await useAuthStore.getState().setSession({
-      accessToken: 'token-1',
-      permissions: [],
+    mockedAuthService.getCurrentSession.mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
       projects: [{ id: 7, name: 'HQ' }],
-      roles: ['admin'],
-      selectedProjectId: null,
-      user: { id: 1, name: 'Bilal' },
+      roles: ['staff'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
     });
 
-    expect(deleteTokenSpy).toHaveBeenCalled();
-    expect(result).toEqual({
-      ok: false,
-      reason: 'selectedProjectPersistenceFailed',
-      rollbackRequired: true,
-      rollbackSucceeded: true,
-      selectedProjectId: null,
-    });
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledWith(
+      'token-2',
+      7,
+    );
   });
 
-  it('returns cleanup success on logout and always clears in-memory state', async () => {
-    const clearSpy = jest
-      .spyOn(secureStorage, 'clearSessionStorage')
-      .mockResolvedValue({
-        ok: true,
+  it('retries auth/me once without project_id when a stale project returns 403 and keeps the valid session', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAuthSession').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
+      .mockResolvedValue({ ok: true });
+    mockedAuthService.getCurrentSession
+      .mockRejectedValueOnce(
+        new ApiError({
+          errorKey: 'forbidden',
+          message: 'Forbidden.',
+          statusCode: 403,
+        }),
+      )
+      .mockResolvedValueOnce({
+        accessToken: 'token-2',
+        backendRoleNames: ['staff'],
+        permissions: ['dashboard.view', 'crm.view'],
+        projects: [{ id: 11, name: 'Field Office' }],
+        roles: ['staff'],
+        selectedProjectId: null,
+        user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
       });
 
-    useAuthStore.setState({
-      accessToken: 'token-1',
-      permissions: ['reports.view'],
-      projects: [{ id: 1, name: 'HQ' }],
-      roles: ['admin'],
-      selectedProjectId: 1,
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenNthCalledWith(
+      1,
+      'token-2',
+      9,
+    );
+    expect(mockedAuthService.getCurrentSession).toHaveBeenNthCalledWith(
+      2,
+      'token-2',
+      null,
+    );
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view', 'crm.view'],
+      projects: [{ id: 11, name: 'Field Office' }],
+      selectedProjectId: null,
       status: 'authenticated',
-      user: { id: 1, name: 'Bilal' },
     });
+  });
 
-    const result = await useAuthStore.getState().clearSession();
+  it('clears the session when auth/me returns 403 again after the retry without project_id', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
+    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
+      ok: true,
+    });
+    mockedAuthService.getCurrentSession
+      .mockRejectedValueOnce(
+        new ApiError({
+          errorKey: 'forbidden',
+          message: 'Forbidden.',
+          statusCode: 403,
+        }),
+      )
+      .mockRejectedValueOnce(
+        new ApiError({
+          errorKey: 'forbidden',
+          message: 'Forbidden.',
+          statusCode: 403,
+        }),
+      );
 
-    expect(clearSpy).toHaveBeenCalled();
-    expect(result).toEqual({ ok: true });
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledTimes(2);
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: null,
-      permissions: [],
-      projects: [],
-      roles: [],
       selectedProjectId: null,
       status: 'unauthenticated',
-      user: null,
     });
   });
 
-  it('returns token deletion failure on logout and still clears in-memory state', async () => {
-    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
-      ok: false,
-      failedOperations: ['deleteAccessToken'],
-    });
-
-    useAuthStore.setState({
-      accessToken: 'token-1',
-      permissions: ['reports.view'],
-      projects: [{ id: 1, name: 'HQ' }],
-      roles: ['admin'],
-      selectedProjectId: 1,
-      status: 'authenticated',
-      user: { id: 1, name: 'Bilal' },
-    });
-
-    const result = await useAuthStore.getState().clearSession();
-
-    expect(result).toEqual({
-      ok: false,
-      failedOperations: ['deleteAccessToken'],
-    });
-    expect(useAuthStore.getState().status).toBe('unauthenticated');
-    expect(useAuthStore.getState().accessToken).toBeNull();
-  });
-
-  it('returns project deletion failure on logout', async () => {
-    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
-      ok: false,
-      failedOperations: ['deleteSelectedProjectId'],
-    });
-
-    const result = await useAuthStore.getState().clearSession();
-
-    expect(result).toEqual({
-      ok: false,
-      failedOperations: ['deleteSelectedProjectId'],
-    });
-  });
-
-  it('returns both deletion failures on logout', async () => {
-    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
-      ok: false,
-      failedOperations: ['deleteAccessToken', 'deleteSelectedProjectId'],
-    });
-
-    const result = await useAuthStore.getState().clearSession();
-
-    expect(result).toEqual({
-      ok: false,
-      failedOperations: ['deleteAccessToken', 'deleteSelectedProjectId'],
-    });
-  });
-
-  it('hydrates stored values without marking the session authenticated', async () => {
+  it('retains the cached session on temporary startup network failure', async () => {
     jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-2');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
     jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
+    mockedAuthService.getCurrentSession.mockRejectedValue(
+      new ApiError({
+        errorKey: 'network',
+        message:
+          'Unable to connect to the server. Check your internet connection and try again.',
+        retryable: true,
+        statusCode: null,
+      }),
+    );
 
     await useAuthStore.getState().hydrateSession();
 
     expect(useAuthStore.getState()).toMatchObject({
       accessToken: 'token-2',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
       selectedProjectId: 9,
+      status: 'authenticated',
+    });
+  });
+
+  it('clears the stored session when the startup token is invalid', async () => {
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('bad-token');
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'bad-token',
+      backendRoleNames: ['staff'],
+      permissions: ['dashboard.view'],
+      projects: [{ id: 9, name: 'HQ' }],
+      roles: ['staff'],
+      selectedProjectId: 9,
+      user: { avatar: null, id: 2, name: 'Bilal', email: 'staff@blue.com' },
+    });
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(9);
+    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
+      ok: true,
+    });
+    mockedAuthService.getCurrentSession.mockRejectedValue(
+      new ApiError({
+        errorKey: 'unauthenticated',
+        message: 'Unauthorized.',
+        statusCode: 401,
+      }),
+    );
+
+    await useAuthStore.getState().hydrateSession();
+
+    expect(mockedAuthService.getCurrentSession).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      permissions: [],
+      selectedProjectId: null,
       status: 'unauthenticated',
     });
   });
@@ -267,6 +309,7 @@ describe('authStore', () => {
 
     useAuthStore.setState({
       accessToken: 'token-1',
+      backendRoleNames: [],
       permissions: [],
       projects: [{ id: 1, name: 'HQ' }],
       roles: [],
@@ -279,5 +322,116 @@ describe('authStore', () => {
 
     expect(setProjectSpy).not.toHaveBeenCalled();
     expect(useAuthStore.getState().selectedProjectId).toBe(1);
+  });
+
+  it('logs out through the backend and then clears local session state', async () => {
+    mockedAuthService.signOut.mockResolvedValue(undefined);
+    const clearSpy = jest
+      .spyOn(secureStorage, 'clearSessionStorage')
+      .mockResolvedValue({
+        ok: true,
+      });
+
+    useAuthStore.setState({
+      accessToken: 'token-1',
+      backendRoleNames: ['admin'],
+      permissions: ['reports.view'],
+      projects: [{ id: 1, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 1,
+      status: 'authenticated',
+      user: { avatar: null, id: 1, name: 'Bilal' },
+    });
+
+    await useAuthStore.getState().logout();
+
+    expect(mockedAuthService.signOut).toHaveBeenCalledWith('token-1');
+    expect(clearSpy).toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      status: 'unauthenticated',
+    });
+  });
+
+  it('still clears the local session when backend logout fails', async () => {
+    mockedAuthService.signOut.mockRejectedValue(
+      new ApiError({
+        errorKey: 'server_error',
+        message: 'The server could not complete the request. Try again.',
+        retryable: true,
+        statusCode: 500,
+      }),
+    );
+    jest.spyOn(secureStorage, 'clearSessionStorage').mockResolvedValue({
+      ok: true,
+    });
+
+    useAuthStore.setState({
+      accessToken: 'token-1',
+      backendRoleNames: ['admin'],
+      permissions: ['reports.view'],
+      projects: [{ id: 1, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 1,
+      status: 'authenticated',
+      user: { avatar: null, id: 1, name: 'Bilal' },
+    });
+
+    await useAuthStore.getState().logout();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      accessToken: null,
+      status: 'unauthenticated',
+    });
+  });
+
+  it('persists backendRoleNames through setSession and refresh hydration', async () => {
+    const setAuthSessionSpy = jest
+      .spyOn(secureStorage, 'setAuthSession')
+      .mockResolvedValue({ ok: true });
+    jest.spyOn(secureStorage, 'setAccessToken').mockResolvedValue({ ok: true });
+    jest
+      .spyOn(secureStorage, 'setSelectedProjectId')
+      .mockResolvedValue({ ok: true });
+
+    await useAuthStore.getState().setSession({
+      accessToken: 'token-9',
+      backendRoleNames: [' SuperAdmin '],
+      permissions: [],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 1, name: 'Sana' },
+    });
+
+    expect(setAuthSessionSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        backendRoleNames: [' SuperAdmin '],
+      }),
+    );
+
+    jest.spyOn(secureStorage, 'getAccessToken').mockResolvedValue('token-9');
+    jest.spyOn(secureStorage, 'getSelectedProjectId').mockResolvedValue(7);
+    jest.spyOn(secureStorage, 'getAuthSession').mockResolvedValue({
+      accessToken: 'token-9',
+      permissions: [],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 1, name: 'Sana' },
+    });
+    mockedAuthService.getCurrentSession.mockResolvedValue({
+      accessToken: 'token-9',
+      backendRoleNames: ['SuperAdmin'],
+      permissions: [],
+      projects: [{ id: 7, name: 'HQ' }],
+      roles: ['administrator'],
+      selectedProjectId: 7,
+      user: { avatar: null, id: 1, name: 'Sana' },
+    });
+
+    await useAuthStore.getState().hydrateSession();
+
+    expect(useAuthStore.getState().backendRoleNames).toEqual(['SuperAdmin']);
   });
 });

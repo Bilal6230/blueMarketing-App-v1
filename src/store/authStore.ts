@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 
-import type { AuthSession, AuthUser } from '@/types/auth';
+import { ApiError } from '@/api/errors';
+import {
+  getCurrentSession,
+  signOut as signOutRequest,
+} from '@/features/auth/services/authService';
+import type { AppRole, AuthSession, AuthUser } from '@/types/auth';
 import type { ProjectSummary } from '@/types/project';
+import { logger } from '@/services/logger';
 import type {
   AuthStatus,
   ClearSessionResult,
@@ -9,33 +15,39 @@ import type {
 } from '@/store/types';
 import {
   clearSessionStorage,
-  deleteSelectedProjectId,
   deleteAccessToken,
+  deleteAuthSession,
+  deleteSelectedProjectId,
   getAccessToken,
+  getAuthSession,
   getSelectedProjectId,
   setAccessToken,
+  setAuthSession,
   setSelectedProjectId,
 } from '@/services/secureStorage';
 
 type AuthState = {
   accessToken: string | null;
+  backendRoleNames: string[];
   permissions: string[];
   projects: ProjectSummary[];
-  roles: string[];
+  roles: AppRole[];
   selectedProjectId: number | null;
   status: AuthStatus;
   user: AuthUser | null;
   clearSession: () => Promise<ClearSessionResult>;
   hydrateSession: () => Promise<void>;
+  logout: () => Promise<void>;
   setSelectedProject: (projectId: number) => Promise<void>;
   setSession: (session: AuthSession) => Promise<SessionPersistenceResult>;
 };
 
 const initialState = {
   accessToken: null,
+  backendRoleNames: [],
   permissions: [],
   projects: [],
-  roles: [],
+  roles: [] as AppRole[],
   selectedProjectId: null,
   status: 'booting' as AuthStatus,
   user: null,
@@ -54,28 +66,164 @@ function resolveSelectedProjectId(
     : null;
 }
 
+function resolvePreferredProjectId(
+  projects: ProjectSummary[],
+  persistedSelectedProjectId: number | null,
+  cachedSessionSelectedProjectId: number | null,
+) {
+  return (
+    resolveSelectedProjectId(projects, persistedSelectedProjectId) ??
+    resolveSelectedProjectId(projects, cachedSessionSelectedProjectId)
+  );
+}
+
+let pendingClearSession: Promise<ClearSessionResult> | null = null;
+let pendingLogout: Promise<void> | null = null;
+
+function buildSessionState(
+  session: AuthSession,
+  persistedProjectId: number | null,
+) {
+  return {
+    accessToken: session.accessToken,
+    backendRoleNames: session.backendRoleNames ?? [],
+    permissions: session.permissions,
+    projects: session.projects,
+    roles: session.roles,
+    selectedProjectId: persistedProjectId,
+    status: 'authenticated' as const,
+    user: session.user,
+  };
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   ...initialState,
   clearSession: async () => {
-    const cleanupResult = await clearSessionStorage();
-    set({
-      ...initialState,
-      status: 'unauthenticated',
-    });
-    return cleanupResult;
+    if (!pendingClearSession) {
+      pendingClearSession = clearSessionStorage()
+        .catch(
+          (): ClearSessionResult => ({
+            ok: false,
+            failedOperations: [],
+          }),
+        )
+        .then((cleanupResult) => {
+          set({
+            ...initialState,
+            status: 'unauthenticated',
+          });
+
+          return cleanupResult as ClearSessionResult;
+        })
+        .finally(() => {
+          pendingClearSession = null;
+        });
+    }
+
+    return pendingClearSession;
   },
   hydrateSession: async () => {
-    const [accessToken, selectedProjectId] = await Promise.all([
+    const [accessToken, selectedProjectId, authSession] = await Promise.all([
       getAccessToken(),
       getSelectedProjectId(),
+      getAuthSession(),
     ]);
 
-    set((state) => ({
-      ...state,
-      accessToken,
+    if (!accessToken || !authSession) {
+      if (accessToken) {
+        await deleteAccessToken();
+      }
+      if (selectedProjectId !== null) {
+        await deleteSelectedProjectId();
+      }
+      await deleteAuthSession();
+      set({
+        ...initialState,
+        status: 'unauthenticated',
+      });
+      return;
+    }
+
+    const persistedProjectId = resolvePreferredProjectId(
+      authSession.projects,
       selectedProjectId,
-      status: 'unauthenticated',
-    }));
+      authSession.selectedProjectId,
+    );
+
+    try {
+      const refreshedSession = await refreshHydratedSession(
+        accessToken,
+        persistedProjectId,
+      );
+      const persistenceResult = await get().setSession(refreshedSession);
+
+      if (!persistenceResult.ok) {
+        logger.warn('Refreshed auth session could not be fully persisted.', {
+          reason: persistenceResult.reason,
+          source: 'authStore.hydrateSession',
+        });
+
+        set(
+          buildSessionState(
+            refreshedSession,
+            persistenceResult.selectedProjectId,
+          ),
+        );
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.statusCode === 401) {
+        await get().clearSession();
+        return;
+      }
+
+      if (
+        error instanceof ApiError &&
+        (error.statusCode === null || error.retryable)
+      ) {
+        logger.warn('Auth session refresh failed during startup.', {
+          errorKey: error.errorKey,
+          source: 'authStore.hydrateSession',
+          statusCode: error.statusCode,
+        });
+
+        set(
+          buildSessionState(
+            {
+              ...authSession,
+              accessToken,
+              selectedProjectId: persistedProjectId,
+            },
+            persistedProjectId,
+          ),
+        );
+        return;
+      }
+
+      await get().clearSession();
+    }
+  },
+  logout: async () => {
+    if (!pendingLogout) {
+      pendingLogout = (async () => {
+        const accessToken = get().accessToken;
+
+        try {
+          await signOutRequest(accessToken);
+        } catch (error) {
+          logger.warn('Logout request failed; clearing local session anyway.', {
+            errorKey: error instanceof ApiError ? error.errorKey : 'unknown',
+            source: 'authStore.logout',
+            statusCode: error instanceof ApiError ? error.statusCode : null,
+          });
+        } finally {
+          await get().clearSession();
+        }
+      })().finally(() => {
+        pendingLogout = null;
+      });
+    }
+
+    await pendingLogout;
   },
   setSelectedProject: async (projectId) => {
     const state = get();
@@ -88,6 +236,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (persistenceResult.ok) {
       set({ selectedProjectId: projectId });
+      await setAuthSession({
+        accessToken: state.accessToken ?? '',
+        backendRoleNames: state.backendRoleNames,
+        permissions: state.permissions,
+        projects: state.projects,
+        roles: state.roles,
+        selectedProjectId: projectId,
+        user: state.user,
+      });
     }
   },
   setSession: async (session) => {
@@ -124,15 +281,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       };
     }
 
-    set({
-      accessToken: session.accessToken,
-      permissions: session.permissions,
-      projects: session.projects,
-      roles: session.roles,
+    const sessionPersistenceResult = await setAuthSession({
+      ...session,
+      backendRoleNames: session.backendRoleNames ?? [],
       selectedProjectId,
-      status: 'authenticated',
-      user: session.user,
     });
+
+    if (!sessionPersistenceResult.ok) {
+      const [
+        tokenRollbackResult,
+        projectRollbackResult,
+        sessionRollbackResult,
+      ] = await Promise.all([
+        deleteAccessToken(),
+        deleteSelectedProjectId(),
+        deleteAuthSession(),
+      ]);
+
+      return {
+        ok: false,
+        reason: 'sessionPersistenceFailed',
+        rollbackRequired: true,
+        rollbackSucceeded:
+          tokenRollbackResult.ok &&
+          projectRollbackResult.ok &&
+          sessionRollbackResult.ok,
+        selectedProjectId,
+      };
+    }
+
+    set(buildSessionState(session, selectedProjectId));
 
     return {
       ok: true,
@@ -140,3 +318,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
   },
 }));
+
+async function refreshHydratedSession(
+  accessToken: string,
+  selectedProjectId: number | null,
+) {
+  try {
+    return await getCurrentSession(accessToken, selectedProjectId);
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.statusCode === 403 &&
+      selectedProjectId !== null
+    ) {
+      logger.warn(
+        'Stored selected project was rejected during startup; retrying without project context.',
+        {
+          projectId: selectedProjectId,
+          source: 'authStore.hydrateSession',
+        },
+      );
+
+      return getCurrentSession(accessToken, null);
+    }
+
+    throw error;
+  }
+}
